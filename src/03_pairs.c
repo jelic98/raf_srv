@@ -1,6 +1,6 @@
 #include "utils.h"
 
-#define QUEUE_SIZE 5
+#define QUEUE_SIZE 10
 #define MAX_FILES 5
 
 static portCHAR paths[MAX_FILES][BUFF_SIZE] = {
