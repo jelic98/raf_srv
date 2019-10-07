@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <conio.h>
 #include "FreeRTOS.h"
 #include "task.h"
@@ -10,7 +11,7 @@
 
 #define DELAY_SEC 1
 #define MAX_TASKS 10
-#define BUFF_SIZE 32
+#define BUFF_SIZE 128
 
 void main_01();
 void main_02();

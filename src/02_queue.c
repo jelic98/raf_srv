@@ -2,7 +2,7 @@
 
 #define QUEUE_SIZE 10
 
-static int xMyQueue[QUEUE_SIZE];
+static int xQueue[QUEUE_SIZE];
 static int iWritePtr = 0;
 static int iReadPtr = 0;
 static int iWriteStart1 = 0;
@@ -16,7 +16,7 @@ static xSemaphoreHandle xQueueFullSem;
 static void vQueuePut(int val) {
 	if(xSemaphoreTake(xQueueFullSem, (TickType_t) portMAX_DELAY) == pdTRUE) {
 		if(xSemaphoreTake(xWriteMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
-			xMyQueue[iWritePtr] = val;
+			xQueue[iWritePtr] = val;
 			iWritePtr = (iWritePtr + 1) % QUEUE_SIZE;
 
 			xSemaphoreGive(xQueueEmptySem);
@@ -29,7 +29,7 @@ static int iQueueTake() {
 	int to_return = -1;
 
 	if(xSemaphoreTake(xQueueEmptySem, (TickType_t) portMAX_DELAY) == pdTRUE) {
-		to_return = xMyQueue[iReadPtr];
+		to_return = xQueue[iReadPtr];
 		iReadPtr = (iReadPtr + 1) % QUEUE_SIZE;
 
 		xSemaphoreGive(xQueueFullSem);
