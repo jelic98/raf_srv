@@ -1,3 +1,20 @@
+/*
+Napraviti sistem sa jednim “control” taskom i više “alarm” taskova.
+
+Control task omogućava:
+a) Postavljanje novog alarma
+b) Štampanje svih alarma
+c) Modifikaciju alarma (ime alarma ne može da se modifikuje)
+d) Uklanjanje alarma po imenu
+
+Svaki alarm ima sledeća svojstva:
+a) String ime, koje se prikazuje pri štampi, i koristi za uklanjanje
+b) Vreme kada će da istekne (sekunde, relativno u odnosu na startovanje)
+c) Poruka koja se prikazuje kada istekne alarm
+d) Svi alarmi su zasebni taskovi koji koriste istu funkciju taska.
+e) Alarm task treba da se završi kada mu istekne vreme.
+*/
+
 #include "utils.h"
 
 #define OPT_CREATE 1

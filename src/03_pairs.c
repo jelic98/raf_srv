@@ -1,3 +1,27 @@
+/*
+Postoji datoteka na disku koja sadrži N parova brojeva.
+Broj N je zapisan samostalno u prvom redu datoteke.
+
+Svaki par se zapisuje u zasebnom redu,
+	i brojevi unutar reda su razdvojeni razmakom.
+Prvi broj je uvek manji od drugog broja u paru.
+
+Napisati aplikaciju sa dva taska - “čitač” i “prostask”.
+Task “čitač” radi na sledeći način:
+a) Parametar taska je naziv datoteke na disku.
+b) Task čita datoteku i zapisuje pročitane parove u niz ograničene veličine.
+c) Ako nema mesta u nizu, task treba da se blokira dok je niz pun.
+	Kada ponovo ima mesta u nizu, task treba da se aktivira.
+
+Task “prostask” radi na sledeći način:
+a) Task se nikada ne završava, već radi u beskonačnoj petlji.
+b) Ako postoji par brojeva u nizu koji do sada nije obradio,
+	pročita ga i pronalazi sve proste brojeve u opsegu između ta dva broja.
+	Kada pronađe sve proste brojeve u zadatom opsegu, ispisuje ih na ekranu.
+c) Ako su svi parovi brojeva obrađeni, prostask treba da bude blokiran,
+	a ne da se vrti u petlji u kojoj ne radi ništa.
+*/
+
 #include "utils.h"
 
 #define QUEUE_SIZE 10
