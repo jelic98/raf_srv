@@ -8,6 +8,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "math.h"
+#include "time.h"
 
 #define DELAY_SEC 1
 #define MAX_TASKS 10
@@ -16,5 +18,6 @@
 void main_01();
 void main_02();
 void main_03();
+void main_04();
 
 #endif
