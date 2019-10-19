@@ -1,7 +1,8 @@
-#include "utils.h"
+#include "main.h"
 
 int main() {
-	main_04();
+	test_01();
+	test_02();
 
 	return 0;
 }
