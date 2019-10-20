@@ -1,15 +1,15 @@
 #include "main.h"
 
-xNode xListCreate(long num, long* factors) {
-	root = (xNode*) malloc(sizeof(xNode));
+xNode* xListCreate(long num, long* factors) {
+	xNode* root = (xNode*) malloc(sizeof(xNode));
 		
 	if(root) {
 		root->num = num;
 		root->next = NULL;
 			
-		int i, len = sizeof(factors) / sizeof(long);
+		int i;
 	
-		for(i = 0; i < len; i++) {
+		for(i = 0; i < factors[i]; i++) {
 			root->factors[i] = factors[i];
 		}
 	}
@@ -17,7 +17,7 @@ xNode xListCreate(long num, long* factors) {
 	return root;
 }
 
-xNode xListPut(xNode* root, long num, long* factors, int* added) {
+xNode* xListPut(xNode* root, long num, long* factors, int* added) {
 	if(!root) {
 		*added = 1;
 		return xListCreate(num, factors);
@@ -45,7 +45,7 @@ xNode xListPut(xNode* root, long num, long* factors, int* added) {
 	return root;
 }
 
-xNode xListGet(xNode* root, long num) {
+xNode* xListGet(xNode* root, long num) {
 	while(root) {
 		if(root->num == num) {
 			return root;
@@ -57,18 +57,18 @@ xNode xListGet(xNode* root, long num) {
 	return NULL;
 }
 
-xNode xListClear(xNode* root) {
+xNode* xListClear(xNode* root) {
 	xNode* tmp = NULL;
 
 	while(root) {	
 		tmp = root->next;
 
-		free(root);
-
 		root->num = 0;
 		root->next = NULL;
 
 		memset(root->factors, 0, sizeof(root->factors));
+		free(root->factors);
+		free(root);
 
 		root = tmp;
 	}

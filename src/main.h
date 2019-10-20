@@ -1,5 +1,5 @@
-#ifndef H_UTILS_INCLUDE
-#define H_UTILS_INCLUDE
+#ifndef H_MAIN_INCLUDE
+#define H_MAIN_INCLUDE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,13 +11,16 @@
 #include "math.h"
 #include "time.h"
 
-#define MAX_BUF_SIZE 128
-#define MAX_MAP_SIZE 10
-#define MAX_TASK_COUNT 10
-#define MAX_SEM_COUNT 10
-#define MAX_FACT_COUNT 100
-#define MAX_TIMEOUT 2000
-#define CONCURRENT 1
+#define RANGE_START 2
+#define RANGE_END 100
+#define MAX_MAP_SIZE 50
+#define MAX_TASK_COUNT 2
+#define MAX_FACT_COUNT 16
+#define MAX_TIMEOUT_TICKS 10000
+#define MAX_DELAY_MILLIS 100
+#define CONCURRENT 0
+#define DEBUG 1
+#define TEST_ID 1
 
 typedef struct xNode {
 	long num;
@@ -26,28 +29,28 @@ typedef struct xNode {
 } xNode;
 
 typedef struct xTaskParams {
-	int start;
-	int end;
-	int size;
+	int id;
+	long size;
+	long start;
+	long end;
 } xTaskParams;
 
-xTasksParams tasks[MAX_TASK_COUNT];
+xTaskParams xTasks[MAX_TASK_COUNT];
 
-xNode xListCreate(long num, long* factors);
-xNode xListPut(xNode* root, long num, long* factors, int* added);
-xNode xListGet(xNode* root, long num);
-xNode xListClear(xNode* root);
+xNode* xListCreate(long, long*);
+xNode* xListPut(xNode*, long, long*, int*);
+xNode* xListGet(xNode*, long);
+xNode* xListClear(xNode*);
 
-int vMapInit();
+void vMapInit();
 int iMapSize();
-int iMapHash(long num);
-int iMapPut(long num, long* factors);
-long* lMapGet(long num, TickType_t timeout);
+int iMapHash(long);
+int iMapPut(long, long*);
+long* lMapGet(long, TickType_t);
 
-void vTasksRun(int count);
+void vTasksRun();
 
 void test_01();
 void test_02();
-void test_03();
 
 #endif

@@ -3,7 +3,7 @@
 static void vTestStart(int id) {
 	printf("TEST %d: START\n", id);
 	fflush(stdout);
-
+}
 
 static void vTestEnd(int id, int ok) {
 	if(ok) {
@@ -18,7 +18,7 @@ static void vTestEnd(int id, int ok) {
 void test_01() {
 	vTestStart(1);
 
-	vTasksRun(1);
+	vTasksRun();
 
 	vTestEnd(1, 0);
 }
@@ -26,7 +26,7 @@ void test_01() {
 void test_02() {
 	vTestStart(2);
 
-	vTasksRun(MAX_TASK_COUNT);
+	vTasksRun();
 
 	vTestEnd(2, 0);
 }
