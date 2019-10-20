@@ -2,7 +2,7 @@
 
 static xNode* xMap[MAX_MAP_SIZE];
 static xSemaphoreHandle xPutMutex[MAX_TASK_COUNT];
-static xSemaphoreHandle xGetSem[RANGE_END - RANGE_START];
+static xSemaphoreHandle xGetSem[RANGE_END - RANGE_START + 1];
 
 void vMapInit() {
 	int i;
@@ -11,9 +11,13 @@ void vMapInit() {
 		xPutMutex[i] = xSemaphoreCreateMutex();
 	}
 	
-	for(i = 0; i < RANGE_END - RANGE_START; i++) {
+	for(i = 0; i < RANGE_END - RANGE_START + 1; i++) {
 		xGetSem[i] = xSemaphoreCreateCounting(MAX_TASK_COUNT, 0);
 	}
+}
+
+int iMapHash(long num) {
+	return num % MAX_MAP_SIZE;
 }
 
 int iMapSize() {
@@ -26,13 +30,8 @@ int iMapSize() {
 	return size;
 }
 
-int iMapHash(long num) {
-	return (int) num / MAX_MAP_SIZE;
-}
-
-int iMapPut(long num, long* factors) {
+int iMapPut(long num, long* factors, int task) {
 	int hash = iMapHash(num);
-	int chunk = hash + ((num % (RANGE_END / MAX_TASK_COUNT)) > 0);
 
 	if(iMapSize() >= MAX_MAP_SIZE) {
 		return -1;
@@ -40,13 +39,11 @@ int iMapPut(long num, long* factors) {
 
 	int added;
 
-	if(!CONCURRENT || xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
+	if(!CONCURRENT || xSemaphoreTake(xPutMutex[task], (TickType_t) portMAX_DELAY) == pdTRUE) {
 		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
-		
-		xTasks[chunk].size++;
 
 		if(CONCURRENT) {
-			xSemaphoreGive(xPutMutex[chunk]);
+			xSemaphoreGive(xPutMutex[task]);
 		}
 
 		if(!added) {
@@ -63,7 +60,7 @@ int iMapPut(long num, long* factors) {
 
 long* lMapGet(long num, TickType_t timeout) {
 	int hash = iMapHash(num);
-	
+
 	if(!CONCURRENT || xSemaphoreTake(xGetSem[num - RANGE_START], timeout) == pdTRUE) {
 		xNode* node = xListGet(xMap[hash], num);
 
@@ -77,4 +74,12 @@ long* lMapGet(long num, TickType_t timeout) {
 	}
 	
 	return NULL;
+}
+
+void vMapClear() {
+	int i;
+
+	for(i = 0; i < MAX_MAP_SIZE; i++) {
+		xMap[i] = xListClear(xMap[i]);
+	}
 }

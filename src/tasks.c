@@ -1,5 +1,7 @@
 #include "main.h"
 
+static int iFinishCount;
+static xSemaphoreHandle xControlMutex;
 static xSemaphoreHandle xControlBarr;
 
 static int iProbGet() {
@@ -31,7 +33,8 @@ static void vTasksInit() {
 
 	xTasks[MAX_TASK_COUNT - 1].end = RANGE_END;
 
-	xControlBarr = xSemaphoreCreateCounting(MAX_TASK_COUNT, 0);
+	xControlMutex = xSemaphoreCreateMutex();
+	xControlBarr = xSemaphoreCreateCounting(1, 0);
 
 	vMapInit();
 }
@@ -111,23 +114,39 @@ static void vFactorTask(void* pvParameters) {
 			fflush(stdout);
 		}
 
-		int added = iMapPut(i, factors);
+		int added = iMapPut(i, factors, task->id - 1);
+
+		task->size += added > 0;
 
 		if(!CONCURRENT || DEBUG) {
 			if(added > 0) {
 				printf("\nNumber %ld added to map\n", i);
-				fflush(stdout);
+				printf("Map size is %d\n", iMapSize());
 			}else {
 				printf("\nNumber %ld not added to map\n", i);
-				fflush(stdout);
-			}
-		}
 
+				if(added == -1) {
+					printf("Map is full\n");
+				}else if (added == -2) {
+					printf("Number %ld exists in map\n", i);
+				}
+			}
+
+			fflush(stdout);
+		}
 
 		vTaskDelay(MAX_DELAY_MILLIS / portTICK_PERIOD_MS);
 	}
 
-	xSemaphoreGive(xControlBarr);
+	if(xSemaphoreTake(xControlMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
+		iFinishCount++;
+
+		if(iFinishCount == MAX_TASK_COUNT) {
+			xSemaphoreGive(xControlBarr);
+		}
+
+		xSemaphoreGive(xControlMutex);
+	}
 
 	vTaskDelete(0);
 }
@@ -145,10 +164,17 @@ static void vControlTask(void* pvParameters) {
 		fflush(stdout);
 
 		for(i = RANGE_START; i <= RANGE_END; i++) {
+			long* factors = lMapGet(i, 0);
+
+			if(!factors) {
+				printf("\nNumber %ld is not in map\n", i);
+				fflush(stdout);
+				continue;
+			}
+
 			printf("\nFactors of %ld:", i);
 			fflush(stdout);
 
-			long* factors = lMapGet(i, 0);
 			long product = 1;
 
 			for(j = 0; factors[j]; j++) {

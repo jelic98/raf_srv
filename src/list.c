@@ -9,7 +9,7 @@ xNode* xListCreate(long num, long* factors) {
 			
 		int i;
 	
-		for(i = 0; i < factors[i]; i++) {
+		for(i = 0; factors[i]; i++) {
 			root->factors[i] = factors[i];
 		}
 	}
@@ -67,7 +67,6 @@ xNode* xListClear(xNode* root) {
 		root->next = NULL;
 
 		memset(root->factors, 0, sizeof(root->factors));
-		free(root->factors);
 		free(root);
 
 		root = tmp;
