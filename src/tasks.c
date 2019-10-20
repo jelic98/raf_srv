@@ -1,5 +1,18 @@
 #include "main.h"
 
+static xSemaphoreHandle xControlBarr;
+
+static int iProbGet() {
+	static int initialized = 0;
+
+	if(!initialized) {
+		srand(time(0));
+		initialized = 1;
+	}
+
+    return rand() & 1;
+}
+
 static void vTasksInit() {
 	int i;
 
@@ -17,6 +30,8 @@ static void vTasksInit() {
 	}
 
 	xTasks[MAX_TASK_COUNT - 1].end = RANGE_END;
+
+	xControlBarr = xSemaphoreCreateCounting(MAX_TASK_COUNT, 0);
 
 	vMapInit();
 }
@@ -36,41 +51,50 @@ static void vFactorTask(void* pvParameters) {
 		long div = 2;
 		int j = 0;
 
-		long factors[MAX_FACT_COUNT];
+		long factors[MAX_FACT_COUNT] = {0};
 
 		if(!CONCURRENT || DEBUG) {
 			printf("\nTASK %d: Calculating factors of %ld\n", task->id, num);
 			fflush(stdout);
 		}
 
+		if(!CONCURRENT) {
+			long repeat = num - iProbGet();
+
+			if(repeat >= RANGE_START) {
+				if(repeat != num && DEBUG) {
+					printf("TASK %d: Repeating factors of %ld\n", task->id, repeat);
+					fflush(stdout);
+				}
+
+				i = num = repeat;
+			}
+		}
+
 		while(num > 1) {
+			long* existing = lMapGet(num, MAX_TIMEOUT_TICKS);
+
+			if(existing) {
+				if(!CONCURRENT || DEBUG) {
+					printf("TASK %d: Getting factors of %ld from map\n", task->id, num);
+					fflush(stdout);
+				}
+
+				int k;
+
+				for(k = 0; existing[k]; k++) {
+					factors[j + k] = existing[k];
+				}
+
+				break;
+			}
+
 			if(num % div) {
 				div++;
 			}else {
 				factors[j++] = div;
 
 				num /= div;
-
-				if(num == 1) {
-					break;
-				}
-
-				long* existing = lMapGet(num, MAX_TIMEOUT_TICKS);
-
-				if(existing) {
-					if(!CONCURRENT || DEBUG) {
-						printf("TASK %d: Getting factors of %ld from map\n", task->id, num);
-						fflush(stdout);
-					}
-
-					int k;
-
-					for(k = 0; existing[k]; k++) {
-						factors[k] = existing[k];
-					}
-
-					break;
-				}
 			}
 		}
 
@@ -79,16 +103,76 @@ static void vFactorTask(void* pvParameters) {
 			fflush(stdout);
 		}
 
-		iMapPut(i, factors);
+		printf("Factors of %ld:", i);
+		fflush(stdout);
+
+		for(j = 0; factors[j]; j++) {
+			printf(" %ld", factors[j]);
+			fflush(stdout);
+		}
+
+		int added = iMapPut(i, factors);
+
+		if(!CONCURRENT || DEBUG) {
+			if(added > 0) {
+				printf("\nNumber %ld added to map\n", i);
+				fflush(stdout);
+			}else {
+				printf("\nNumber %ld not added to map\n", i);
+				fflush(stdout);
+			}
+		}
+
 
 		vTaskDelay(MAX_DELAY_MILLIS / portTICK_PERIOD_MS);
+	}
+
+	xSemaphoreGive(xControlBarr);
+
+	vTaskDelete(0);
+}
+
+
+static void vControlTask(void* pvParameters) {
+	if(xSemaphoreTake(xControlBarr, (TickType_t) portMAX_DELAY) == pdTRUE) {
+		if(CONCURRENT && !DEBUG) {
+			return;
+		}
+
+		long i, j;
+
+		printf("\nCHECKER: Checking factors in range [%d - %d]\n", RANGE_START, RANGE_END);
+		fflush(stdout);
+
+		for(i = RANGE_START; i <= RANGE_END; i++) {
+			printf("\nFactors of %ld:", i);
+			fflush(stdout);
+
+			long* factors = lMapGet(i, 0);
+			long product = 1;
+
+			for(j = 0; factors[j]; j++) {
+				product *= factors[j];
+
+				printf(" %ld", factors[j]);
+				fflush(stdout);
+			}
+
+			if(product == i) {
+				printf("\nCORRECT: Number=%ld Product=%ld\n", i, product);
+				fflush(stdout);
+			}else {
+				printf("\nINCORRECT: Number=%ld Product=%ld\n", i, product);
+				fflush(stdout);
+			}
+		}
 	}
 
 	vTaskDelete(0);
 }
 
 void vTasksRun() {
-	vTasksInit(MAX_TASK_COUNT);
+	vTasksInit();
 
 	int i;
 
@@ -103,10 +187,19 @@ void vTasksRun() {
 			(const portCHAR*) "FactorTask",
 			configMINIMAL_STACK_SIZE,
 			&xTasks[i],
-			1,
+			2,
 			NULL
 		);
 	}
+
+	xTaskCreate(
+		vControlTask,
+		(const portCHAR*) "ControlTask",
+		configMINIMAL_STACK_SIZE,
+		NULL,
+		1,
+		NULL
+	);
 
 	vTaskStartScheduler();
 }

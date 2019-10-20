@@ -11,10 +11,10 @@
 #include "math.h"
 #include "time.h"
 
-#define RANGE_START 2
-#define RANGE_END 100
+#define RANGE_START 10
+#define RANGE_END 20
 #define MAX_MAP_SIZE 50
-#define MAX_TASK_COUNT 2
+#define MAX_TASK_COUNT 1
 #define MAX_FACT_COUNT 16
 #define MAX_TIMEOUT_TICKS 10000
 #define MAX_DELAY_MILLIS 100
@@ -49,8 +49,6 @@ int iMapPut(long, long*);
 long* lMapGet(long, TickType_t);
 
 void vTasksRun();
-
-void test_01();
-void test_02();
+void vTasksCheck();
 
 #endif

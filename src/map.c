@@ -48,7 +48,7 @@ int iMapPut(long num, long* factors) {
 		if(CONCURRENT) {
 			xSemaphoreGive(xPutMutex[chunk]);
 		}
-		
+
 		if(!added) {
 			return -2;
 		}
@@ -58,7 +58,7 @@ int iMapPut(long num, long* factors) {
 		}
 	}
 
-	return 0;
+	return 1;
 }
 
 long* lMapGet(long num, TickType_t timeout) {

@@ -1,7 +1,7 @@
 #include "main.h"
 
 xNode* xListCreate(long num, long* factors) {
-	xNode* root = (xNode*) malloc(sizeof(xNode));
+	xNode* root = (xNode*) calloc(1, sizeof(xNode));
 		
 	if(root) {
 		root->num = num;
