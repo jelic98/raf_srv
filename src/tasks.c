@@ -15,12 +15,12 @@ static int iProbGet() {
     return rand() & 1;
 }
 
+// TODO Overlapping ranges
 static void vTasksInit() {
 	int i;
 
 	for(i = 0; i < MAX_TASK_COUNT; i++) {
 		xTasks[i].id = i + 1;
-		xTasks[i].size = 0;
 
 		if(i == 0) {
 			xTasks[i].start = RANGE_START;
@@ -104,19 +104,17 @@ static void vFactorTask(void* pvParameters) {
 		if(!CONCURRENT || DEBUG) {
 			printf("TASK %d: Putting factors of %ld to map\n", task->id, i);
 			fflush(stdout);
-		}
 
-		printf("Factors of %ld:", i);
-		fflush(stdout);
-
-		for(j = 0; factors[j]; j++) {
-			printf(" %ld", factors[j]);
+			printf("Factors of %ld:", i);
 			fflush(stdout);
+
+			for(j = 0; factors[j]; j++) {
+				printf(" %ld", factors[j]);
+				fflush(stdout);
+			}
 		}
 
-		int added = iMapPut(i, factors, task->id - 1);
-
-		task->size += added > 0;
+		int added = iMapPut(i, factors);
 
 		if(!CONCURRENT || DEBUG) {
 			if(added > 0) {
@@ -154,11 +152,9 @@ static void vFactorTask(void* pvParameters) {
 
 static void vControlTask(void* pvParameters) {
 	if(xSemaphoreTake(xControlBarr, (TickType_t) portMAX_DELAY) == pdTRUE) {
-		if(CONCURRENT && !DEBUG) {
-			return;
-		}
-
 		long i, j;
+
+		vMapPrint();
 
 		printf("\nCHECKER: Checking factors in range [%d - %d]\n", RANGE_START, RANGE_END);
 		fflush(stdout);
@@ -194,6 +190,8 @@ static void vControlTask(void* pvParameters) {
 		}
 	}
 
+	vMapClear();
+
 	vTaskDelete(0);
 }
 
@@ -203,10 +201,8 @@ void vTasksRun() {
 	int i;
 
 	for(i = 0; i < MAX_TASK_COUNT; i++) {
-		if(!CONCURRENT || DEBUG) {
-			printf("RUNNER: Creating task %d of %d total tasks\n", i + 1, MAX_TASK_COUNT);
-			fflush(stdout);
-		}
+		printf("RUNNER: Creating task %d of %d total tasks\n", i + 1, MAX_TASK_COUNT);
+		fflush(stdout);
 
 		xTaskCreate(
 			vFactorTask,

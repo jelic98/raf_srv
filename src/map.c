@@ -1,11 +1,15 @@
 #include "main.h"
 
+static int iSize;
 static xNode* xMap[MAX_MAP_SIZE];
+static xSemaphoreHandle xSizeMutex;
 static xSemaphoreHandle xPutMutex[MAX_TASK_COUNT];
 static xSemaphoreHandle xGetSem[RANGE_END - RANGE_START + 1];
 
 void vMapInit() {
 	int i;
+
+	xSizeMutex = xSemaphoreCreateMutex();
 
 	for(i = 0; i < MAX_TASK_COUNT; i++) {
 		xPutMutex[i] = xSemaphoreCreateMutex();
@@ -17,21 +21,16 @@ void vMapInit() {
 }
 
 int iMapHash(long num) {
-	return num % MAX_MAP_SIZE;
+	return (num - RANGE_START) % MAX_MAP_SIZE;
 }
 
 int iMapSize() {
-	int i, size = 0;
-
-	for(i = 0; i < MAX_TASK_COUNT; i++) {
-		size += xTasks[i].size;
-	}
-
-	return size;
+	return iSize;
 }
 
-int iMapPut(long num, long* factors, int task) {
+int iMapPut(long num, long* factors) {
 	int hash = iMapHash(num);
+	int chunk = 0;
 
 	if(iMapSize() >= MAX_MAP_SIZE) {
 		return -1;
@@ -39,11 +38,11 @@ int iMapPut(long num, long* factors, int task) {
 
 	int added;
 
-	if(!CONCURRENT || xSemaphoreTake(xPutMutex[task], (TickType_t) portMAX_DELAY) == pdTRUE) {
+	if(!CONCURRENT || xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
 		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
 
 		if(CONCURRENT) {
-			xSemaphoreGive(xPutMutex[task]);
+			xSemaphoreGive(xPutMutex[chunk]);
 		}
 
 		if(!added) {
@@ -52,6 +51,11 @@ int iMapPut(long num, long* factors, int task) {
 
 		if(CONCURRENT) {
 			xSemaphoreGive(xGetSem[num - RANGE_START]);
+		}
+
+		if(!CONCURRENT || xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
+			iSize++;
+			xSemaphoreGive(xSizeMutex);
 		}
 	}
 
@@ -64,15 +68,15 @@ long* lMapGet(long num, TickType_t timeout) {
 	if(!CONCURRENT || xSemaphoreTake(xGetSem[num - RANGE_START], timeout) == pdTRUE) {
 		xNode* node = xListGet(xMap[hash], num);
 
-		if(node) {
-			return node->factors;
-		}
-
 		if(CONCURRENT) {
 			xSemaphoreGive(xGetSem[num - RANGE_START]);
 		}
+
+		if(node) {
+			return node->factors;
+		}
 	}
-	
+
 	return NULL;
 }
 
@@ -81,5 +85,21 @@ void vMapClear() {
 
 	for(i = 0; i < MAX_MAP_SIZE; i++) {
 		xMap[i] = xListClear(xMap[i]);
+	}
+
+	iSize = 0;
+}
+
+void vMapPrint() {
+	int i;
+
+	printf("\nMAP\n");
+	fflush(stdout);
+
+	for(i = 0; i < MAX_MAP_SIZE; i++) {
+		printf("#%d ", i);
+		fflush(stdout);
+
+		vListPrint(xMap[i]);
 	}
 }

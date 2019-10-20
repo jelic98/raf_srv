@@ -11,15 +11,15 @@
 #include "math.h"
 #include "time.h"
 
-#define RANGE_START 10
-#define RANGE_END 50
-#define MAX_MAP_SIZE 10
+#define RANGE_START 2
+#define RANGE_END 20
+#define MAX_MAP_SIZE 11
 #define MAX_TASK_COUNT 2
 #define MAX_FACT_COUNT 16
-#define MAX_TIMEOUT_TICKS 10000
+#define MAX_TIMEOUT_TICKS 100
 #define MAX_DELAY_MILLIS 100
-#define CONCURRENT 0
-#define DEBUG 1
+#define CONCURRENT 1
+#define DEBUG 0
 #define TEST_ID 1
 
 typedef struct xNode {
@@ -30,7 +30,6 @@ typedef struct xNode {
 
 typedef struct xTaskParams {
 	int id;
-	long size;
 	long start;
 	long end;
 } xTaskParams;
@@ -41,13 +40,15 @@ xNode* xListCreate(long, long*);
 xNode* xListPut(xNode*, long, long*, int*);
 xNode* xListGet(xNode*, long);
 xNode* xListClear(xNode*);
+void vListPrint(xNode* root);
 
 void vMapInit();
 int iMapHash(long);
 int iMapSize();
-int iMapPut(long, long*, int);
+int iMapPut(long, long*);
 long* lMapGet(long, TickType_t);
 void vMapClear();
+void vMapPrint();
 
 void vTasksRun();
 void vTasksCheck();

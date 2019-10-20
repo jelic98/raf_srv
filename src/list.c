@@ -74,3 +74,17 @@ xNode* xListClear(xNode* root) {
 
 	return root;
 }
+
+void vListPrint(xNode* root) {
+	printf("LIST:");
+
+	while(root) {
+		printf(" %ld", root->num);
+
+		root = root->next;
+	}
+
+	printf("\n");
+	fflush(stdout);
+}
+
