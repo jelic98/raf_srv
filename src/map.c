@@ -38,24 +38,24 @@ int iMapPut(long num, long* factors) {
 
 	int added;
 
-	if(!CONCURRENT || xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
+	if(!FLAG_CONCURRENT || xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
 		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
 
-		if(CONCURRENT) {
+		if(FLAG_CONCURRENT) {
 			xSemaphoreGive(xPutMutex[chunk]);
+			xSemaphoreGive(xGetSem[num - RANGE_START]);
 		}
 
 		if(!added) {
 			return -2;
 		}
 
-		if(CONCURRENT) {
-			xSemaphoreGive(xGetSem[num - RANGE_START]);
-		}
-
-		if(!CONCURRENT || xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
+		if(!FLAG_CONCURRENT || xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
 			iSize++;
-			xSemaphoreGive(xSizeMutex);
+
+			if(FLAG_CONCURRENT) {
+				xSemaphoreGive(xSizeMutex);
+			}
 		}
 	}
 
@@ -65,10 +65,10 @@ int iMapPut(long num, long* factors) {
 long* lMapGet(long num, TickType_t timeout) {
 	int hash = iMapHash(num);
 
-	if(!CONCURRENT || xSemaphoreTake(xGetSem[num - RANGE_START], timeout) == pdTRUE) {
+	if(!FLAG_CONCURRENT || xSemaphoreTake(xGetSem[num - RANGE_START], timeout) == pdTRUE) {
 		xNode* node = xListGet(xMap[hash], num);
 
-		if(CONCURRENT) {
+		if(FLAG_CONCURRENT) {
 			xSemaphoreGive(xGetSem[num - RANGE_START]);
 		}
 
@@ -93,7 +93,7 @@ void vMapClear() {
 void vMapPrint() {
 	int i;
 
-	printf("\nMAP\n");
+	printf("\nMAP (SIZE %d)\n", iMapSize());
 	fflush(stdout);
 
 	for(i = 0; i < MAX_MAP_SIZE; i++) {
