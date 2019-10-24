@@ -11,14 +11,12 @@
 #include "math.h"
 #include "time.h"
 
-#define RANGE_START 20
-#define RANGE_END 1000
-#define RANGE_OVERLAP 5
-#define MAX_MAP_SIZE 50
-#define MAX_TASK_COUNT 50
+#define RANGE_START 2
+#define RANGE_END 100000
+#define RANGE_OVERLAP 200
+#define MAX_MAP_SIZE 100000
+#define MAX_TASK_COUNT 200
 #define MAX_FACT_COUNT 16
-#define MAX_TIMEOUT_TICKS 100
-#define MAX_DELAY_MILLIS 0
 #define FLAG_CONCURRENT 0
 #define FLAG_DEBUG 0
 
@@ -32,6 +30,7 @@ typedef struct xTaskParams {
 	int id;
 	long start;
 	long end;
+	long puts;
 } xTaskParams;
 
 xTaskParams xTasks[MAX_TASK_COUNT];
@@ -45,7 +44,7 @@ void vListPrint(xNode* root);
 void vMapInit();
 int iMapHash(long);
 int iMapSize();
-int iMapPut(long, long*);
+int iMapPut(long, long*, int);
 long* lMapGet(long, TickType_t);
 void vMapClear();
 void vMapPrint();

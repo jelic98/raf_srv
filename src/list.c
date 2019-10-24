@@ -83,8 +83,5 @@ void vListPrint(xNode* root) {
 
 		root = root->next;
 	}
-
-	printf("\n");
-	fflush(stdout);
 }
 

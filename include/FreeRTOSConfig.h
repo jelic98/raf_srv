@@ -45,7 +45,7 @@
 #define configUSE_DAEMON_TASK_STARTUP_HOOK		0
 #define configTICK_RATE_HZ						( 1000 ) /* In this non-real time simulated environment the tick frequency has to be at least a multiple of the Win32 tick frequency, and therefore very slow. */
 #define configMINIMAL_STACK_SIZE				( ( unsigned short ) 70 ) /* In this simulated case, the stack only has to hold one small structure as the real stack is part of the win32 thread. */
-#define configTOTAL_HEAP_SIZE					( ( size_t ) ( 1024 * 1024 ) )
+#define configTOTAL_HEAP_SIZE					( ( size_t ) ( 10240 * 1024 ) )
 #define configMAX_TASK_NAME_LEN					( 12 )
 #define configUSE_TRACE_FACILITY				0
 #define configUSE_16_BIT_TICKS					0
@@ -135,7 +135,7 @@ used with multiple project configurations.  If it is
 	#define mtCOVERAGE_TEST_MARKER() __asm volatile( "NOP" )
 
 	/* Ensure the tick count overflows during the coverage test. */
-	#define configINITIAL_TICK_COUNT 0xffffd800UL
+	#define configINITIAL_TICK_COUNT 0x0UL
 
 	/* Allows tests of trying to allocate more than the heap has free. */
 	#define configUSE_MALLOC_FAILED_HOOK			0
