@@ -18,8 +18,6 @@ static void vTasksInit() {
 			xTasks[i].start = xTasks[i - 1].end - RANGE_OVERLAP;
 			xTasks[i].end = xTasks[i].start + RANGE_END / MAX_TASK_COUNT + RANGE_OVERLAP;
 		}
-//		xTasks[i].start = RANGE_START;
-//		xTasks[i].end = xTasks[i].start + RANGE_END / MAX_TASK_COUNT - RANGE_START;
 	}
 
 	xTasks[MAX_TASK_COUNT - 1].end = RANGE_END;
@@ -135,41 +133,41 @@ static void vControlTask(void* pvParameters) {
 
 		long i, j, count;
 
-		for(i = RANGE_START; i <= RANGE_END; i++) {
-			long* factors = lMapGet(i, 0);
-
-			if(!factors) {
-				printf("\nNumber %ld is not in map\n", i);
-				fflush(stdout);
-				continue;
-			}
-
-			printf("\nFactors of %ld:", i);
-			fflush(stdout);
-
-			long product = 1;
-
-			for(j = 0; factors[j]; j++) {
-				product *= factors[j];
-
-				printf(" %ld", factors[j]);
-				fflush(stdout);
-			}
-
-			if(product == i) {
-				printf("\nCORRECT: Number=%ld Product=%ld\n", i, product);
-				fflush(stdout);
-			}else {
-				printf("\nINCORRECT: Number=%ld Product=%ld\n", i, product);
-				fflush(stdout);
-			}
-		}
+//		for(i = RANGE_START; i <= RANGE_END; i++) {
+//			long* factors = lMapGet(i, 0);
+//
+//			if(!factors) {
+//				printf("\nNumber %ld is not in map\n", i);
+//				fflush(stdout);
+//				continue;
+//			}
+//
+//			printf("\nFactors of %ld:", i);
+//			fflush(stdout);
+//
+//			long product = 1;
+//
+//			for(j = 0; factors[j]; j++) {
+//				product *= factors[j];
+//
+//				printf(" %ld", factors[j]);
+//				fflush(stdout);
+//			}
+//
+//			if(product == i) {
+//				printf("\nCORRECT: Number=%ld Product=%ld\n", i, product);
+//				fflush(stdout);
+//			}else {
+//				printf("\nINCORRECT: Number=%ld Product=%ld\n", i, product);
+//				fflush(stdout);
+//			}
+//		}
 
 		count = 0;
 
 		for(i = 0; i < MAX_TASK_COUNT; i++) {
-			printf("\nTask %ld had %ld puts in range [%ld - %ld]", i + 1, xTasks[i].puts, xTasks[i].start, xTasks[i].end);
-			fflush(stdout);
+//			printf("\nTask %ld had %ld puts in range [%ld - %ld]", i + 1, xTasks[i].puts, xTasks[i].start, xTasks[i].end);
+//			fflush(stdout);
 			count += xTasks[i].puts;
 		}
 

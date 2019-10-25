@@ -1,20 +1,45 @@
 #include "main.h"
 
 static int iSize;
-static xNode* xMap[MAX_MAP_SIZE];
 static xSemaphoreHandle xSizeMutex;
+static xNode* xMap[MAX_MAP_SIZE];
 static xSemaphoreHandle xPutMutex[MAX_TASK_COUNT];
 static xSemaphoreHandle xGetSem[MAX_TASK_COUNT];
 
-void vMapInit() {
+static void vSizeIncrement() {
+	const int MAX_REP = 1000;
 	int i;
 
-	xSizeMutex = xSemaphoreCreateMutex();
+	if(FLAG_CONCURRENT) {
+		if(xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
+			for(i = 0; i < MAX_REP; i++) {
+				iSize++;
+				iSize--;
+			}
+
+			iSize++;
+
+			xSemaphoreGive(xSizeMutex);
+		}
+	}else {
+		for(i = 0; i < MAX_REP; i++) {
+			iSize++;
+			iSize--;
+		}
+
+		iSize++;
+	}
+}
+
+void vMapInit() {
+	int i;
 
 	for(i = 0; i < MAX_TASK_COUNT; i++) {
 		xPutMutex[i] = xSemaphoreCreateMutex();
 		xGetSem[i] = xSemaphoreCreateCounting(MAX_TASK_COUNT, 0);
 	}
+
+	xSizeMutex = xSemaphoreCreateMutex();
 }
 
 int iMapHash(long num) {
@@ -41,25 +66,16 @@ int iMapPut(long num, long* factors, int task) {
 
 			xSemaphoreGive(xPutMutex[chunk]);
 			xSemaphoreGive(xGetSem[chunk]);
-
-			if(!added) {
-				return -2;
-			}
-
-			if(xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
-				iSize++;
-				xSemaphoreGive(xSizeMutex);
-			}
 		}
 	}else {
 		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
-
-		if(!added) {
-			return -2;
-		}
-
-		iSize++;
 	}
+
+	if(!added) {
+		return -2;
+	}
+
+	vSizeIncrement();
 
 	xTasks[task].puts++;
 
@@ -69,6 +85,8 @@ int iMapPut(long num, long* factors, int task) {
 long* lMapGet(long num, TickType_t timeout) {
 	int hash = iMapHash(num);
 	
+	xNode* node;
+
 	if(FLAG_CONCURRENT) {
 		int chunk = hash % MAX_TASK_COUNT;
 
@@ -77,23 +95,21 @@ long* lMapGet(long num, TickType_t timeout) {
 
 		do {
 			if(xSemaphoreTake(xGetSem[chunk], timeout - ticks) == pdTRUE) {
-				xNode* node = xListGet(xMap[hash], num);
+				node = xListGet(xMap[hash], num);
 
 				xSemaphoreGive(xGetSem[chunk]);
 
-				if(node) {
-					return node->factors;
-				}
+				break;
 			}
 
 			ticks = xTaskGetTickCount();
 		}while(timeout && ticks < timeout);
 	}else {
-		xNode* node = xListGet(xMap[hash], num);
+		node = xListGet(xMap[hash], num);
+	}
 
-		if(node) {
-			return node->factors;
-		}
+	if(node) {
+		return node->factors;
 	}
 
 	return NULL;
@@ -106,7 +122,14 @@ void vMapClear() {
 		xMap[i] = xListClear(xMap[i]);
 	}
 
-	iSize = 0;
+	if(FLAG_CONCURRENT) {
+		if(xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
+			iSize = 0;
+			xSemaphoreGive(xSizeMutex);
+		}
+	}else {
+		iSize = 0;
+	}
 }
 
 void vMapPrint() {

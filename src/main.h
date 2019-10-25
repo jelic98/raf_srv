@@ -13,12 +13,12 @@
 
 #define RANGE_START 2
 #define RANGE_END 100000
-#define RANGE_OVERLAP 200
+#define RANGE_OVERLAP 100
 #define MAX_MAP_SIZE 100000
 #define MAX_TASK_COUNT 200
 #define MAX_FACT_COUNT 16
 #define FLAG_CONCURRENT 0
-#define FLAG_DEBUG 0
+#define FLAG_DEBUG 1
 
 typedef struct xNode {
 	long num;
