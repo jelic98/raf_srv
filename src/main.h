@@ -12,13 +12,13 @@
 #include "time.h"
 
 #define RANGE_START 2
-#define RANGE_END 100000
-#define RANGE_OVERLAP 100
-#define MAX_MAP_SIZE 100000
-#define MAX_TASK_COUNT 200
+#define RANGE_END 1000
+#define RANGE_OVERLAP 20
+#define MAX_MAP_SIZE 1000
+#define MAX_TASK_COUNT 20
 #define MAX_FACT_COUNT 16
-#define FLAG_CONCURRENT 0
-#define FLAG_DEBUG 1
+#define FLAG_CONCURRENT 1
+#define FLAG_DEBUG 0
 
 typedef struct xNode {
 	long num;
@@ -36,6 +36,7 @@ typedef struct xTaskParams {
 xTaskParams xTasks[MAX_TASK_COUNT];
 
 xNode* xListCreate(long, long*);
+xNode* xListDelete(xNode*, long);
 xNode* xListPut(xNode*, long, long*, int*);
 xNode* xListGet(xNode*, long);
 xNode* xListClear(xNode*);

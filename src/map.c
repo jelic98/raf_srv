@@ -63,11 +63,15 @@ int iMapPut(long num, long* factors, int task) {
 
 		if(xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
 			xMap[hash] = xListPut(xMap[hash], num, factors, &added);
+			xMap[hash] = xListDelete(xMap[hash], num);
+			xMap[hash] = xListPut(xMap[hash], num, factors, &added);
 
 			xSemaphoreGive(xPutMutex[chunk]);
 			xSemaphoreGive(xGetSem[chunk]);
 		}
 	}else {
+		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
+		xMap[hash] = xListDelete(xMap[hash], num);
 		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
 	}
 
