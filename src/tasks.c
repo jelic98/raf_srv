@@ -3,6 +3,7 @@
 static int iFinishCount;
 static xSemaphoreHandle xControlMutex;
 static xSemaphoreHandle xControlBarr;
+static TaskHandle_t* timeoutTask;
 
 static void vTasksInit() {
 	int i;
@@ -10,6 +11,8 @@ static void vTasksInit() {
 	for(i = 0; i < MAX_TASK_COUNT; i++) {
 		xTasks[i].id = i + 1;
 		xTasks[i].puts = 0;
+		xTasks[i].event = 0;
+		xTasks[i].handle = NULL;
 
 		if(i == 0) {
 			xTasks[i].start = RANGE_START;
@@ -123,9 +126,20 @@ static void vFactorTask(void* pvParameters) {
 	vTaskDelete(0);
 }
 
+static void vTimeoutTask(void* pvParameters) {
+	for(;;) {
+		vMapRefresh();
+
+		vTaskDelay(1 / portTICK_PERIOD_MS);
+	}
+
+	vTaskDelete(0);
+}
 
 static void vControlTask(void* pvParameters) {
 	if(xSemaphoreTake(xControlBarr, (TickType_t) portMAX_DELAY) == pdTRUE) {
+		vTaskDelete(timeoutTask);
+
 		vMapPrint();
 
 		printf("\nCHECKER: Checking factors in range [%d - %d]\n", RANGE_START, RANGE_END);
@@ -133,41 +147,41 @@ static void vControlTask(void* pvParameters) {
 
 		long i, j, count;
 
-//		for(i = RANGE_START; i <= RANGE_END; i++) {
-//			long* factors = lMapGet(i, 0);
-//
-//			if(!factors) {
+		for(i = RANGE_START; i <= RANGE_END; i++) {
+			long* factors = lMapGet(i, 0);
+
+			if(!factors) {
 //				printf("\nNumber %ld is not in map\n", i);
-//				fflush(stdout);
-//				continue;
-//			}
-//
+				fflush(stdout);
+				continue;
+			}
+
 //			printf("\nFactors of %ld:", i);
-//			fflush(stdout);
-//
-//			long product = 1;
-//
-//			for(j = 0; factors[j]; j++) {
-//				product *= factors[j];
-//
+			fflush(stdout);
+
+			long product = 1;
+
+			for(j = 0; factors[j]; j++) {
+				product *= factors[j];
+
 //				printf(" %ld", factors[j]);
-//				fflush(stdout);
-//			}
-//
-//			if(product == i) {
+				fflush(stdout);
+			}
+
+			if(product == i) {
 //				printf("\nCORRECT: Number=%ld Product=%ld\n", i, product);
-//				fflush(stdout);
-//			}else {
+				fflush(stdout);
+			}else {
 //				printf("\nINCORRECT: Number=%ld Product=%ld\n", i, product);
-//				fflush(stdout);
-//			}
-//		}
+				fflush(stdout);
+			}
+		}
 
 		count = 0;
 
 		for(i = 0; i < MAX_TASK_COUNT; i++) {
-//			printf("\nTask %ld had %ld puts in range [%ld - %ld]", i + 1, xTasks[i].puts, xTasks[i].start, xTasks[i].end);
-//			fflush(stdout);
+			printf("\nTask %ld had %ld puts in range [%ld - %ld]", i + 1, xTasks[i].puts, xTasks[i].start, xTasks[i].end);
+			fflush(stdout);
 			count += xTasks[i].puts;
 		}
 
@@ -194,17 +208,26 @@ void vTasksRun() {
 			(const portCHAR*) "FactorTask",
 			configMINIMAL_STACK_SIZE,
 			&xTasks[i],
-			2,
-			NULL
+			1,
+			xTasks[i].handle
 		);
 	}
+
+	xTaskCreate(
+		vControlTask,
+		(const portCHAR*) "TimeoutTask",
+		configMINIMAL_STACK_SIZE,
+		NULL,
+		2,
+		timeoutTask
+	);
 
 	xTaskCreate(
 		vControlTask,
 		(const portCHAR*) "ControlTask",
 		configMINIMAL_STACK_SIZE,
 		NULL,
-		1,
+		3,
 		NULL
 	);
 

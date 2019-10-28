@@ -31,6 +31,9 @@ typedef struct xTaskParams {
 	long start;
 	long end;
 	long puts;
+	long event;
+	TickType_t deadline;
+	TaskHandle_t* handle;
 } xTaskParams;
 
 xTaskParams xTasks[MAX_TASK_COUNT];
@@ -45,10 +48,15 @@ void vListPrint(xNode*);
 void vMapInit();
 int iMapHash(long);
 int iMapSize();
+void vMapRefresh();
 int iMapPut(long, long*, int);
-long* lMapGet(long, TickType_t);
+long* lMapGet(long, TickType_t, int);
 void vMapClear();
 void vMapPrint();
+
+void vQueueWait(QueueHandle_t, long);
+void vQueueSignal(QueueHandle_t, long, int, TickType_t);
+void vQueueRefresh(QueueHandle_t);
 
 void vTasksRun();
 void vTasksCheck();
