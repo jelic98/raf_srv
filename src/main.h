@@ -13,11 +13,11 @@
 
 #define RANGE_START 2
 #define RANGE_END 1000
-#define RANGE_OVERLAP 20
+#define RANGE_OVERLAP 50
 #define MAX_MAP_SIZE 1000
-#define MAX_TASK_COUNT 20
+#define MAX_TASK_COUNT 15
 #define MAX_FACT_COUNT 16
-#define FLAG_CONCURRENT 1
+#define FLAG_CONCURRENT 0
 #define FLAG_DEBUG 0
 
 typedef struct xNode {
@@ -40,7 +40,7 @@ xNode* xListDelete(xNode*, long);
 xNode* xListPut(xNode*, long, long*, int*);
 xNode* xListGet(xNode*, long);
 xNode* xListClear(xNode*);
-void vListPrint(xNode* root);
+void vListPrint(xNode*);
 
 void vMapInit();
 int iMapHash(long);

@@ -31,12 +31,32 @@ static void vSizeIncrement() {
 	}
 }
 
+static void vNumberPut(int task, int hash, long num, long* factors, int* added) {
+	const int MAX_REP = 10000;
+	int i, contains;
+
+	contains = xListGet(xMap[hash], num) != 0;
+
+	for(i = 0; i < MAX_REP; i++) {
+		xMap[hash] = xListPut(xMap[hash], num, factors, added);
+		xMap[hash] = xListDelete(xMap[hash], num);
+	}
+
+	xMap[hash] = xListPut(xMap[hash], num, factors, added);
+
+	if(!contains) {
+		vSizeIncrement();
+
+		xTasks[task].puts++;
+	}
+}
+
 void vMapInit() {
 	int i;
 
 	for(i = 0; i < MAX_TASK_COUNT; i++) {
 		xPutMutex[i] = xSemaphoreCreateMutex();
-		xGetSem[i] = xSemaphoreCreateCounting(MAX_TASK_COUNT, 0);
+		xGetSem[i] = xSemaphoreCreateCounting(MAX_TASK_COUNT, 1);
 	}
 
 	xSizeMutex = xSemaphoreCreateMutex();
@@ -62,26 +82,18 @@ int iMapPut(long num, long* factors, int task) {
 		int chunk = hash % MAX_TASK_COUNT;
 
 		if(xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
-			xMap[hash] = xListPut(xMap[hash], num, factors, &added);
-			xMap[hash] = xListDelete(xMap[hash], num);
-			xMap[hash] = xListPut(xMap[hash], num, factors, &added);
+			vNumberPut(task, hash, num, factors, &added);
 
 			xSemaphoreGive(xPutMutex[chunk]);
 			xSemaphoreGive(xGetSem[chunk]);
 		}
 	}else {
-		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
-		xMap[hash] = xListDelete(xMap[hash], num);
-		xMap[hash] = xListPut(xMap[hash], num, factors, &added);
+		vNumberPut(task, hash, num, factors, &added);
 	}
 
 	if(!added) {
 		return -2;
 	}
-
-	vSizeIncrement();
-
-	xTasks[task].puts++;
 
 	return 1;
 }
@@ -103,7 +115,9 @@ long* lMapGet(long num, TickType_t timeout) {
 
 				xSemaphoreGive(xGetSem[chunk]);
 
-				break;
+				if(node) {
+					break;
+				}
 			}
 
 			ticks = xTaskGetTickCount();
