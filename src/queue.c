@@ -9,8 +9,10 @@ void vQueueWait(QueueHandle_t queue, long num, xTaskParams *task, TickType_t tim
 		return;
 	}
 
-	printf("Getting: %ld Suspending: %d\n", num, task->id);
-	fflush(stdout);
+	if(FLAG_DEBUG) {
+		printf("Getting: %ld Suspending: %d\n", num, task->id);
+		fflush(stdout);
+	}
 
 	vTaskSuspend(task->handle);
 }
@@ -19,7 +21,13 @@ void vQueueSignal(QueueHandle_t queue, long num) {
 	xTaskParams* first = NULL;
 	xTaskParams* current = NULL;
 
-	int ok = xQueueReceive(queue, (void *) &first, (TickType_t) 0);
+	int ok = xQueueIsQueueEmptyFromISR(queue) == pdFALSE;
+
+	if(!ok) {
+		return;
+	}
+
+	ok = xQueueReceive(queue, (void *) &first, (TickType_t) 0) == pdTRUE;
 
 	if(!ok) {
 		return;
@@ -31,8 +39,11 @@ void vQueueSignal(QueueHandle_t queue, long num) {
 		}
 
 		if(current->event == num) {
-			printf("Putting: %ld Resuming: %d\n", num, current->id);
-			fflush(stdout);
+			if(FLAG_DEBUG) {
+				printf("Putting: %ld Resuming: %d\n", num, current->id);
+				fflush(stdout);
+			}
+
 			vTaskResume(current->handle);
 			return;
 		}
@@ -48,7 +59,13 @@ void vQueueRefresh(QueueHandle_t queue) {
 	xTaskParams* first = NULL;
 	xTaskParams* current = NULL;
 
-	int ok = xQueueReceive(queue, (void *) &first, (TickType_t) 0);
+	int ok = xQueueIsQueueEmptyFromISR(queue) == pdFALSE;
+
+	if(!ok) {
+		return;
+	}
+
+	ok = xQueueReceive(queue, (void *) &first, (TickType_t) 0) == pdTRUE;
 
 	if(!ok) {
 		return;
@@ -60,8 +77,11 @@ void vQueueRefresh(QueueHandle_t queue) {
 		}
 
 		if(xTaskGetTickCount() >= current->deadline) {
-			printf("Resuming: %d\n", current->id);
-			fflush(stdout);
+			if(FLAG_DEBUG) {
+				printf("Resuming: %d\n", current->id);
+				fflush(stdout);
+			}
+
 			vTaskResume(current->handle);
 			return;
 		}

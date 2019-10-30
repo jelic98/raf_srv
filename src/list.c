@@ -17,34 +17,6 @@ xNode* xListCreate(long num, long* factors) {
 	return root;
 }
 
-xNode* xListDelete(xNode* root, long num) {
-    xNode* tmp = root;
-    xNode* prev = NULL;
-
-    while(tmp) {
-        if(tmp->num == num) {
-			if(prev) {
-            	prev->next = tmp->next;
-
-				free(tmp);
-
-				tmp = prev->next;
-			}else {
-				root = tmp->next;
-
-				free(tmp);
-
-				tmp = root;
-			}
-        }else {
-        	tmp = (prev = tmp)->next;
-		}
-    }
-
-    return root;
-}
-
-
 xNode* xListPut(xNode* root, long num, long* factors, int* added) {
 	if(!root) {
 		*added = 1;

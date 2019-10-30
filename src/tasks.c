@@ -98,7 +98,6 @@ static void vFactorTask(void* pvParameters) {
 		if(FLAG_DEBUG) {
 			if(added > 0) {
 				printf("\nNumber %ld added to map\n", i);
-				printf("Map size is %d\n", iMapSize());
 			}else {
 				printf("\nNumber %ld not added to map\n", i);
 
@@ -140,8 +139,6 @@ static void vControlTask(void* pvParameters) {
 	if(xSemaphoreTake(xControlBarr, (TickType_t) portMAX_DELAY) == pdTRUE) {
 		vTaskDelete(timeoutTask);
 
-		vMapPrint();
-
 		printf("\nCHECKER: Checking factors in range [%d - %d]\n", RANGE_START, RANGE_END);
 		fflush(stdout);
 
@@ -151,12 +148,12 @@ static void vControlTask(void* pvParameters) {
 			long* factors = lMapGet(i, 0, NULL);
 
 			if(!factors) {
-//				printf("\nNumber %ld is not in map\n", i);
+				printf("\nNumber %ld is not in map\n", i);
 				fflush(stdout);
 				continue;
 			}
 
-//			printf("\nFactors of %ld:", i);
+			printf("\nFactors of %ld:", i);
 			fflush(stdout);
 
 			long product = 1;
@@ -164,18 +161,20 @@ static void vControlTask(void* pvParameters) {
 			for(j = 0; factors[j]; j++) {
 				product *= factors[j];
 
-//				printf(" %ld", factors[j]);
+				printf(" %ld", factors[j]);
 				fflush(stdout);
 			}
 
 			if(product == i) {
-//				printf("\nCORRECT: Number=%ld Product=%ld\n", i, product);
+				printf("\nCORRECT: Number=%ld Product=%ld\n", i, product);
 				fflush(stdout);
 			}else {
-//				printf("\nINCORRECT: Number=%ld Product=%ld\n", i, product);
+				printf("\nINCORRECT: Number=%ld Product=%ld\n", i, product);
 				fflush(stdout);
 			}
 		}
+
+		vMapPrint();
 
 		count = 0;
 
@@ -187,9 +186,9 @@ static void vControlTask(void* pvParameters) {
 
 		printf("\nTotal put count: %ld\n", count);
 		fflush(stdout);
-	}
 
-	vMapClear();
+		vMapClear();
+	}
 
 	vTaskDelete(0);
 }
@@ -218,7 +217,7 @@ void vTasksRun() {
 		(const portCHAR*) "TimeoutTask",
 		configMINIMAL_STACK_SIZE,
 		NULL,
-		1,
+		3,
 		&timeoutTask
 	);
 

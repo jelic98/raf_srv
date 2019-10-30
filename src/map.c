@@ -7,41 +7,23 @@ static xSemaphoreHandle xPutMutex[MAX_TASK_COUNT];
 static QueueHandle_t xQueue[MAX_TASK_COUNT];
 
 static void vNumberPut(xTaskParams* task, int hash, long num, long* factors, int* added) {
-	const int MAX_REP = 10000;
-	int i, contains;
+	int contains = xListGet(xMap[hash], num) != 0;
 
-	contains = xListGet(xMap[hash], num) != 0;
-
-	for(i = 0; i < MAX_REP; i++) {
-		xMap[hash] = xListPut(xMap[hash], num, factors, added);
-		xMap[hash] = xListDelete(xMap[hash], num);
+	if(contains) {
+		return;
 	}
 
 	xMap[hash] = xListPut(xMap[hash], num, factors, added);
 
-	if(!contains) {
-		if(FLAG_CONCURRENT) {
-			if(xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
-				for(i = 0; i < MAX_REP; i++) {
-					iSize++;
-					iSize--;
-				}
+	int i;
 
-				iSize++;
-
-				xSemaphoreGive(xSizeMutex);
-			}
-		}else {
-			for(i = 0; i < MAX_REP; i++) {
-				iSize++;
-				iSize--;
-			}
-
-			iSize++;
-		}
-		
-		task->puts++;
+	for(i = 0; i < MAX_SYNC_REP; i++) {
+		iSize++;
+		iSize--;
 	}
+
+	iSize++;
+	task->puts++;
 }
 
 void vMapInit() {
@@ -64,18 +46,6 @@ int iMapHash(long num) {
 	return (num - RANGE_START) % MAX_MAP_SIZE;
 }
 
-int iMapSize() {
-	return iSize;
-}
-
-void vMapRefresh() {
-	int i;
-	
-	for(i = 0; i < MAX_TASK_COUNT; i++) {
-		vQueueRefresh(xQueue[i]);
-	}
-}
-
 int iMapPut(long num, long* factors, xTaskParams* task) {
 	int hash = iMapHash(num);
 	int added;
@@ -88,12 +58,21 @@ int iMapPut(long num, long* factors, xTaskParams* task) {
 		int chunk = hash % MAX_TASK_COUNT;
 
 		if(xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
-			vNumberPut(task, hash, num, factors, &added);
+			if(xSemaphoreTake(xSizeMutex, (TickType_t) portMAX_DELAY) == pdTRUE) {
+				if(iSize < MAX_MAP_SIZE) {
+					vNumberPut(task, hash, num, factors, &added);
+					vQueueSignal(xQueue[chunk], num);
+				}
+
+				xSemaphoreGive(xSizeMutex);
+			}
+
 			xSemaphoreGive(xPutMutex[chunk]);
-			vQueueSignal(xQueue[chunk], num);
 		}
 	}else {
-		vNumberPut(task, hash, num, factors, &added);
+		if(iSize < MAX_MAP_SIZE) {
+			vNumberPut(task, hash, num, factors, &added);
+		}
 	}
 
 	if(!added) {
@@ -126,6 +105,14 @@ long* lMapGet(long num, TickType_t timeout, xTaskParams* task) {
 	}
 
 	return NULL;
+}
+
+void vMapRefresh() {
+	int i;
+
+	for(i = 0; i < MAX_TASK_COUNT; i++) {
+		vQueueRefresh(xQueue[i]);
+	}
 }
 
 void vMapClear() {
