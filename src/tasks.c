@@ -3,7 +3,7 @@
 static int iFinishCount;
 static xSemaphoreHandle xControlMutex;
 static xSemaphoreHandle xControlBarr;
-static TaskHandle_t* timeoutTask;
+static TaskHandle_t timeoutTask;
 
 static void vTasksInit() {
 	int i;
@@ -56,7 +56,7 @@ static void vFactorTask(void* pvParameters) {
 
 		while(num > 1) {
 			if(num >= RANGE_START) {
-				long* existing = lMapGet(num, 0);
+				long* existing = lMapGet(num, TIMEOUT_SLAVE_MILLIS, task);
 
 				if(existing) {
 					if(FLAG_DEBUG) {
@@ -93,7 +93,7 @@ static void vFactorTask(void* pvParameters) {
 			}
 		}
 
-		added = iMapPut(i, factors, task->id - 1);
+		added = iMapPut(i, factors, task);
 
 		if(FLAG_DEBUG) {
 			if(added > 0) {
@@ -130,7 +130,7 @@ static void vTimeoutTask(void* pvParameters) {
 	for(;;) {
 		vMapRefresh();
 
-		vTaskDelay(1 / portTICK_PERIOD_MS);
+		vTaskDelay(TIMEOUT_MASTER_MILLIS / portTICK_PERIOD_MS);
 	}
 
 	vTaskDelete(0);
@@ -148,7 +148,7 @@ static void vControlTask(void* pvParameters) {
 		long i, j, count;
 
 		for(i = RANGE_START; i <= RANGE_END; i++) {
-			long* factors = lMapGet(i, 0);
+			long* factors = lMapGet(i, 0, NULL);
 
 			if(!factors) {
 //				printf("\nNumber %ld is not in map\n", i);
@@ -208,18 +208,18 @@ void vTasksRun() {
 			(const portCHAR*) "FactorTask",
 			configMINIMAL_STACK_SIZE,
 			&xTasks[i],
-			1,
-			xTasks[i].handle
+			2,
+			&xTasks[i].handle
 		);
 	}
 
 	xTaskCreate(
-		vControlTask,
+		vTimeoutTask,
 		(const portCHAR*) "TimeoutTask",
 		configMINIMAL_STACK_SIZE,
 		NULL,
-		2,
-		timeoutTask
+		1,
+		&timeoutTask
 	);
 
 	xTaskCreate(
@@ -227,7 +227,7 @@ void vTasksRun() {
 		(const portCHAR*) "ControlTask",
 		configMINIMAL_STACK_SIZE,
 		NULL,
-		3,
+		1,
 		NULL
 	);
 

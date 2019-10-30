@@ -1,46 +1,74 @@
-void vQueueWait(QueueHandle_t queue, long num, int task, TickType_t timeout) {
-	xTasks[task].event = num;
-	xTasks[task].deadline = xTaskGetTickCount() + timeout;
-	xQueueSend(queue, &task, (TickType_t) 0);
-	vTaskSuspend(xTasks[task]);
+#include "main.h"
+
+void vQueueWait(QueueHandle_t queue, long num, xTaskParams *task, TickType_t timeout) {
+	task->event = num;
+	task->deadline = xTaskGetTickCount() + timeout;
+	int ok = xQueueSend(queue, (void *) &task, (TickType_t) 0);
+
+	if(!ok) {
+		return;
+	}
+
+	printf("Getting: %ld Suspending: %d\n", num, task->id);
+	fflush(stdout);
+
+	vTaskSuspend(task->handle);
 }
 
 void vQueueSignal(QueueHandle_t queue, long num) {
-	int first, current = 0;
-	
-	xQueueReceive(queue, &first, (TickType_t) 0);
+	xTaskParams* first = NULL;
+	xTaskParams* current = NULL;
+
+	int ok = xQueueReceive(queue, (void *) &first, (TickType_t) 0);
+
+	if(!ok) {
+		return;
+	}
 
 	while(current != first) {
 		if(!current) {
 			current = first;
 		}
 
-		if(xTasks[current].event == num) {
-			vTaskResume(xTasks[current].handle);
-			break;
+		if(current->event == num) {
+			printf("Putting: %ld Resuming: %d\n", num, current->id);
+			fflush(stdout);
+			vTaskResume(current->handle);
+			return;
 		}
 
-		xQueueSend(queue, &current, (TickType_t) 0);
-		xQueueReceive(queue, &current, (TickType_t) 0);
+		xQueueSend(queue, (void *) &current, (TickType_t) 0);
+		xQueueReceive(queue, (void *) &current, (TickType_t) 0);
 	}
+
+	xQueueSend(queue, (void *) &current, (TickType_t) 0);
 }
 
 void vQueueRefresh(QueueHandle_t queue) {
-	int first, current = 0;
-	
-	xQueueReceive(queue, &first, (TickType_t) 0);
+	xTaskParams* first = NULL;
+	xTaskParams* current = NULL;
+
+	int ok = xQueueReceive(queue, (void *) &first, (TickType_t) 0);
+
+	if(!ok) {
+		return;
+	}
 
 	while(current != first) {
 		if(!current) {
 			current = first;
 		}
 
-		if(xTaskGetTickCount() >= xTasks[current].deadline) {
-			vTaskResume(xTasks[current].handle);
-			break;
+		if(xTaskGetTickCount() >= current->deadline) {
+			printf("Resuming: %d\n", current->id);
+			fflush(stdout);
+			vTaskResume(current->handle);
+			return;
 		}
 
-		xQueueSend(queue, &current, (TickType_t) 0);
-		xQueueReceive(queue, &current, (TickType_t) 0);
+		xQueueSend(queue, (void *) &current, (TickType_t) 0);
+		xQueueReceive(queue, (void *) &current, (TickType_t) 0);
 	}
+
+	xQueueSend(queue, (void *) &current, (TickType_t) 0);
 }

@@ -6,7 +6,7 @@ static xNode* xMap[MAX_MAP_SIZE];
 static xSemaphoreHandle xPutMutex[MAX_TASK_COUNT];
 static QueueHandle_t xQueue[MAX_TASK_COUNT];
 
-static void vNumberPut(int task, int hash, long num, long* factors, int* added) {
+static void vNumberPut(xTaskParams* task, int hash, long num, long* factors, int* added) {
 	const int MAX_REP = 10000;
 	int i, contains;
 
@@ -40,7 +40,7 @@ static void vNumberPut(int task, int hash, long num, long* factors, int* added) 
 			iSize++;
 		}
 		
-		xTasks[task].puts++;
+		task->puts++;
 	}
 }
 
@@ -49,7 +49,12 @@ void vMapInit() {
 
 	for(i = 0; i < MAX_TASK_COUNT; i++) {
 		xPutMutex[i] = xSemaphoreCreateMutex();
-		xQueue[i] = xQueueCreate(MAX_TASK_COUNT, sizeof(int*));
+		xQueue[i] = xQueueCreate(MAX_TASK_COUNT, sizeof(xTaskParams*));
+
+		if(!xQueue[i]) {
+			printf("Failed to create queue %d\n", i);
+			fflush(stdout);
+		}
 	}
 
 	xSizeMutex = xSemaphoreCreateMutex();
@@ -71,7 +76,7 @@ void vMapRefresh() {
 	}
 }
 
-int iMapPut(long num, long* factors, int task) {
+int iMapPut(long num, long* factors, xTaskParams* task) {
 	int hash = iMapHash(num);
 	int added;
 
@@ -85,7 +90,7 @@ int iMapPut(long num, long* factors, int task) {
 		if(xSemaphoreTake(xPutMutex[chunk], (TickType_t) portMAX_DELAY) == pdTRUE) {
 			vNumberPut(task, hash, num, factors, &added);
 			xSemaphoreGive(xPutMutex[chunk]);
-			vQueueSignal(chunk, num);
+			vQueueSignal(xQueue[chunk], num);
 		}
 	}else {
 		vNumberPut(task, hash, num, factors, &added);
@@ -98,7 +103,7 @@ int iMapPut(long num, long* factors, int task) {
 	return 1;
 }
 
-long* lMapGet(long num, TickType_t timeout, int task) {
+long* lMapGet(long num, TickType_t timeout, xTaskParams* task) {
 	int hash = iMapHash(num);
 	
 	xNode* node;
@@ -108,8 +113,8 @@ long* lMapGet(long num, TickType_t timeout, int task) {
 
 		node = xListGet(xMap[hash], num);
 		
-		if(!node) {
-			vQueueWait(chunk, num, task, timeout);
+		if(!node && timeout && task) {
+			vQueueWait(xQueue[chunk], num, task, timeout);
 			node = xListGet(xMap[hash], num);
 		}
 	}else {
