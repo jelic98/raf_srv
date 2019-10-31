@@ -50,7 +50,7 @@ int iMapPut(long num, long* factors, xTaskParams* task) {
 	int hash = iMapHash(num);
 	int added;
 
-	if(iMapSize() >= MAX_MAP_SIZE) {
+	if(iSize >= MAX_MAP_SIZE) {
 		return -1;
 	}
 
@@ -142,6 +142,6 @@ void vMapPrint() {
 		vListPrint(xMap[i]);
 	}
 
-	printf("\nMAP SIZE: %d\n", iMapSize());
+	printf("\nMAP SIZE: %d\n", iSize);
 	fflush(stdout);
 }
