@@ -5,6 +5,17 @@ static xSemaphoreHandle xControlMutex;
 static xSemaphoreHandle xControlBarr;
 static TaskHandle_t timeoutTask;
 
+static int iProbGet() {
+	static int initialized = 0;
+
+	if(!initialized) {
+		srand(time(0));
+		initialized = 1;
+	}
+	
+	return rand() & 1;
+ }
+
 static void vTasksInit() {
 	int i;
 
@@ -46,6 +57,14 @@ static void vFactorTask(void* pvParameters) {
 		num = i;
 		div = 2;
 		j = 0;
+
+		if(MAX_TASK_COUNT == 1) {
+			long repeat = num - iProbGet();
+
+			if(repeat >= RANGE_START && repeat != num) {
+				i = num = repeat;
+			}
+		}
 
 		if(FLAG_DEBUG) {
 			printf("\nTASK %d: Calculating factors of %ld\n", task->id, num);

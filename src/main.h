@@ -12,17 +12,20 @@
 #include "math.h"
 #include "time.h"
 
+#define FLAG_CONCURRENT 1
+#define FLAG_DEBUG 0
+
 #define RANGE_START 2
-#define RANGE_END 100000
-#define RANGE_OVERLAP 1000
+#define RANGE_END 1000
+#define RANGE_OVERLAP 10
+
 #define MAX_MAP_SIZE 1000
 #define MAX_TASK_COUNT 50
 #define MAX_FACT_COUNT 16
 #define MAX_SYNC_REP 10000
+
 #define TIMEOUT_MASTER_MILLIS 1
-#define TIMEOUT_SLAVE_MILLIS 0
-#define FLAG_CONCURRENT 1
-#define FLAG_DEBUG 0
+#define TIMEOUT_SLAVE_MILLIS 1
 
 typedef struct xNode {
 	long num;

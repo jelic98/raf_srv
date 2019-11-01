@@ -1,8 +1,11 @@
 #include "main.h"
 
 void vQueueWait(QueueHandle_t queue, long num, xTaskParams *task, TickType_t timeout) {
+	int current = xTaskGetTickCount();
+	
 	task->event = num;
-	task->deadline = xTaskGetTickCount() + timeout;
+	task->deadline = current + timeout;
+	
 	int ok = xQueueSend(queue, (void *) &task, (TickType_t) 0);
 
 	if(!ok) {
@@ -10,7 +13,7 @@ void vQueueWait(QueueHandle_t queue, long num, xTaskParams *task, TickType_t tim
 	}
 
 	if(FLAG_DEBUG) {
-		printf("Getting: %ld Suspending: %d\n", num, task->id);
+		printf("Getting: %ld Suspending: %d Time: %d Deadline: %d\n", num, task->id, current, task->deadline);
 		fflush(stdout);
 	}
 
@@ -40,7 +43,7 @@ void vQueueSignal(QueueHandle_t queue, long num) {
 
 		if(current->event == num) {
 			if(FLAG_DEBUG) {
-				printf("Putting: %ld Resuming: %d\n", num, current->id);
+				printf("Putting: %ld Resuming: %d Time: %d Deadline: %d\n", num, current->id, xTaskGetTickCount(), current->deadline);
 				fflush(stdout);
 			}
 
@@ -78,7 +81,7 @@ void vQueueRefresh(QueueHandle_t queue) {
 
 		if(xTaskGetTickCount() >= current->deadline) {
 			if(FLAG_DEBUG) {
-				printf("Resuming: %d\n", current->id);
+				printf("Resuming: %d Time: %d Deadline: %d\n", current->id, xTaskGetTickCount(), current->deadline);
 				fflush(stdout);
 			}
 
