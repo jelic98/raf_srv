@@ -12,20 +12,50 @@
 #include "math.h"
 #include "time.h"
 
-#define FLAG_CONCURRENT 1
-#define FLAG_DEBUG 0
+// 1 = Single task, with synchronization, no timeout
+// 2 = Single task, with synchronization, with timeout
+// 3 = Multiple tasks, with synchronization, no timeout
+// 4 = Multiple tasks, no synchronization, no timeout
+#define TEST_ID 1
+
+#if TEST_ID == 1
+	#define FLAG_CONCURRENT 1
+	#define FLAG_DEBUG 1
+	#define RANGE_END 100
+	#define MAX_MAP_SIZE 50
+	#define MAX_TASK_COUNT 1
+	#define TIMEOUT_SLAVE_MILLIS 0
+
+#elif TEST_ID == 2
+	#define FLAG_CONCURRENT 1
+	#define FLAG_DEBUG 1
+	#define RANGE_END 100
+	#define MAX_MAP_SIZE 50
+	#define MAX_TASK_COUNT 1
+	#define TIMEOUT_SLAVE_MILLIS 10
+
+#elif TEST_ID == 3
+	#define FLAG_CONCURRENT 1
+	#define FLAG_DEBUG 0
+	#define RANGE_END 10000
+	#define MAX_MAP_SIZE 5000
+	#define MAX_TASK_COUNT 50
+	#define TIMEOUT_SLAVE_MILLIS 0
+
+#elif TEST_ID == 4
+	#define FLAG_CONCURRENT 0
+	#define FLAG_DEBUG 0
+	#define RANGE_END 10000
+	#define MAX_MAP_SIZE 5000
+	#define MAX_TASK_COUNT 50
+	#define TIMEOUT_SLAVE_MILLIS 0
+#endif
 
 #define RANGE_START 2
-#define RANGE_END 1000
-#define RANGE_OVERLAP 10
-
-#define MAX_MAP_SIZE 1000
-#define MAX_TASK_COUNT 50
+#define RANGE_OVERLAP 150
 #define MAX_FACT_COUNT 16
 #define MAX_SYNC_REP 10000
-
-#define TIMEOUT_MASTER_MILLIS 1
-#define TIMEOUT_SLAVE_MILLIS 1
+#define TIMEOUT_MASTER_MILLIS 5
 
 typedef struct xNode {
 	long num;
