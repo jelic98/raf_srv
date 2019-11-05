@@ -1,7 +1,7 @@
 #include "main.h"
 
 int main() {
-	vTasksRun();
+	vSchedStart();
 
 	return 0;
 }
