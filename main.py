@@ -206,16 +206,23 @@ class App(Frame):
     def action_add_task(self):
         task = Task()
         task.name = self.cmb_task.get()
-        task.job = self.cmb_job.get()
+        task.time_start = self.ent_time_start.get()
+        task.time_compute = self.ent_time_compute.get()
+        task.time_deadline = self.ent_time_deadline.get()
         
-        found = None
+        found_task = None
         for other in tasks:
             if other == task:
-                found = other
+                found_task = other
                 break
-        if found is not None:
-            tasks.remove(found)
+        if found_task is not None:
+            tasks.remove(found_task)
         tasks.append(task)
+ 
+        for job in jobs:
+            if job.name == self.cmb_job.get():
+                task.job = job
+                break
         
         self.layout_refresh()
     
@@ -224,13 +231,13 @@ class App(Frame):
         resource.name = self.ent_resource_name.get()
         resource.delay = self.ent_resource_delay.get()
         
-        found = None
+        found_resource = None
         for other in resources:
             if other == resource:
-                found = other
+                found_resource = other
                 break
-        if found is not None:
-            resources.remove(found)
+        if found_resource is not None:
+            resources.remove(found_resource)
         resources.append(resource)
         
         self.layout_refresh()
@@ -238,7 +245,14 @@ class App(Frame):
     def action_save(self):
         fout = open(self.ent_path.get(), "w")
         for task in tasks:
-            fout.write('{},{}\r\n'.format(task.id, task.parents))
+            fout.write('{name},{start},{compute},{deadline},{job};{resources};{precedence}\r\n'.format(
+                name=task.name,
+                start=task.time_start,
+                compute=task.time_compute,
+                deadline=task.time_deadline,
+                job=task.job.name,
+                resources=task.job.resources,
+                precedence=task.precedence))
         fout.close()
     
     def action_load(self):
