@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 class Resource:
     def __init__(self):
-        self.name = "Resource " + str(len(resources))
+        self.name = "Resource " + str(len(resources) + 1)
         self.delay = 0
         
     def __eq__(self, other):
@@ -21,7 +21,7 @@ class Resource:
 class Job:
     def __init__(self, name):
         self.name = name
-        self.resources = []
+        self.resources = [IntVar()] * len(resources)
         
     def __eq__(self, other):
         if not isinstance(other, Job):
@@ -36,13 +36,14 @@ class Job:
 
 class Task:
     def __init__(self):
-        self.name = "Task " + str(len(tasks))
+        self.name = "Task " + str(len(tasks) + 1)
         self.time_start = 0
         self.time_compute = 0
         self.time_deadline = 0
         self.job = None
-        self.precedence = []
- 
+        self.precedence = [IntVar()] * len(tasks)
+        self.added = False
+
     def __eq__(self, other):
         if not isinstance(other, Task):
             return False
@@ -60,7 +61,6 @@ class App(Frame):
         Style().theme_use("default")
         self.master = master
         self.master.title("Batch Editor")
-        self.layout_refresh()
 
     def layout_refresh(self):
         for widget in self.winfo_children():
@@ -71,8 +71,8 @@ class App(Frame):
         self.lbl_task.grid(row=0, column=0, padx=10, pady=10)
         self.cmb_task = Combobox(self, values=tasks)
         self.cmb_task.grid(row=0, column=1, padx=10, pady=10)
-        if current_task >= 0:
-            self.cmb_task.current(current_task)
+        if current_task.added:
+            self.cmb_task.current(tasks.index(current_task))
         self.cmb_task.bind("<<ComboboxSelected>>", self.action_select_task)
 
         # Job
@@ -80,8 +80,7 @@ class App(Frame):
         self.lbl_job.grid(row=1, column=0)
         self.cmb_job = Combobox(self, values=jobs)
         self.cmb_job.grid(row=1, column=1, padx=10, pady=10)
-        if current_job >= 0:
-            self.cmb_job.current(current_job)
+        self.cmb_job.current(jobs.index(current_job))
         self.cmb_job.bind("<<ComboboxSelected>>", self.action_select_job)
 
         # Start time
@@ -168,91 +167,118 @@ class App(Frame):
         self.pack(fill=BOTH, expand=1)
    
     def precedence_refresh(self):
-        i = 0
+        if len(tasks) == 0:
+            return
+        i = -1
         for task in tasks:
             i += 1
-            var = IntVar()
-            self.cbn_test = Checkbutton(self.frm_precedence, text=task.name, variable=var)
-            self.cbn_test.grid(row=int(i/11), column=i%11)
+            self.cbn = Checkbutton(self.frm_precedence, text=task.name, variable=current_task.precedence[i])
+            self.cbn.grid(row=int(i/10), column=i%10)
  
     def resources_refresh(self):
-        i = 0
+        if len(resources) == 0:
+            return
+        i = -1
         for resource in resources:
             i += 1
-            var = IntVar()
-            self.cbn_test = Checkbutton(self.frm_resources, text=resource.name, variable=var)
-            self.cbn_test.grid(row=int(i/11), column=i%11)
-
+            self.cbn = Checkbutton(self.frm_resources, text=resource.name, variable=current_job.resources[i])
+            self.cbn.grid(row=int(i/10), column=i%10)
+    
     def action_select_task(self, event):
         global current_task
-        i = 0
         for task in tasks:
-            i += 1
             if task.name == self.cmb_task.get():
-                current_task = i - 1
+                current_task = task
                 self.layout_refresh()
                 break
 
     def action_select_job(self, event):
         global current_job
-        i = 0
         for job in jobs:
-            i += 1
             if job.name == self.cmb_job.get():
-                current_job = i - 1
+                current_job = job
                 self.layout_refresh()
                 break
 
     def action_add_task(self):
-        task = Task()
-        task.name = self.cmb_task.get()
-        task.time_start = self.ent_time_start.get()
-        task.time_compute = self.ent_time_compute.get()
-        task.time_deadline = self.ent_time_deadline.get()
-        
-        found_task = None
-        for other in tasks:
-            if other == task:
-                found_task = other
-                break
-        if found_task is not None:
-            tasks.remove(found_task)
-        tasks.append(task)
- 
+        global current_task
+        current_task.name = self.cmb_task.get()
+        current_task.time_start = self.ent_time_start.get()
+        current_task.time_compute = self.ent_time_compute.get()
+        current_task.time_deadline = self.ent_time_deadline.get()
+        current_task.added = True
+
         for job in jobs:
             if job.name == self.cmb_job.get():
-                task.job = job
+                current_task.job = job
                 break
-        
+
+        i = -1
+        found = False
+        for task in tasks:
+            i += 1
+            if task == current_task:
+                tasks[i] = current_task
+                found = True
+                break
+        if not found:
+            tasks.append(current_task)
+            for task in tasks:
+                task.precedence.append(IntVar())
+
+        current_task = Task()
+    
         self.layout_refresh()
     
     def action_add_resource(self):
         resource = Resource()
         resource.name = self.ent_resource_name.get()
         resource.delay = self.ent_resource_delay.get()
-        
-        found_resource = None
+
+        i = -1
+        found = False
         for other in resources:
+            i += 1
             if other == resource:
-                found_resource = other
+                resources[i] = resource
+                found = True
                 break
-        if found_resource is not None:
-            resources.remove(found_resource)
-        resources.append(resource)
+        if not found:
+            resources.append(resource)
+            for job in jobs:
+                job.resources.append(IntVar())
         
         self.layout_refresh()
     
     def action_save(self):
         fout = open(self.ent_path.get(), "w")
+        # Resources
+        fout.write(str(len(resources)) + "\r\n")
+        for resource in resources:
+            fout.write("{name},{delay}\r\n".format(
+                name=resource.name,
+                delay=resource.delay))
+        # Jobs
+        fout.write(str(len(jobs)) + "\r\n")
+        for job in jobs:
+            fout.write(job.name)
+            for i in range(len(tasks)):
+                if job.resources[i].get() == 1:
+                    fout.write("," + i)
+            fout.write("\r\n")
+        # Tasks
+        fout.write(str(len(tasks)) + "\r\n")
         for task in tasks:
-            fout.write('{name},{start},{compute},{deadline},{job};{resources};{precedence}\r\n'.format(
+            fout.write("{name},{start},{compute},{deadline},{job}".format(
                 name=task.name,
                 start=task.time_start,
                 compute=task.time_compute,
                 deadline=task.time_deadline,
-                job=task.job.name,
-                resources=task.job.resources,
-                precedence=task.precedence))
+                job=task.job.name))
+            for i in range(len(tasks)):
+                if task.precedence[i].get() == 1:
+                    fout.write("," + i)
+            fout.write("\r\n")
         fout.close()
     
     def action_load(self):
@@ -278,19 +304,20 @@ class App(Frame):
         table.scale(1, 2)
         plt.show()
 
+root = Tk()
+root.resizable(False, False)
+app = App(root)
+
 tasks = []
 resources = []
-
 jobs = [
     Job("Job 1"),
     Job("Job 2"),
     Job("Job 3")
 ]
 
-current_task = -1
-current_job = -1
+current_task = Task()
+current_job = jobs[0]
 
-root = Tk()
-root.resizable(False, False)
-app = App(root)
+app.layout_refresh()
 root.mainloop() 

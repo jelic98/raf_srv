@@ -1,14 +1,5 @@
 #include "main.h"
 
-static void vJobServer(void* pvParameters) {
-	JobType_t* job = (JobType_t*) pvParameters;
-	job->cState = STATE_RUNNING;
-	job->fun(job->pvParameters);
-	job->cState = STATE_FINISHED;
-
-	vTaskDelete(0);
-}
-
 static void vJobCreate(JobType_t* job, void (*fun)(void*), void* pvParameters, TickType_t arrival, TickType_t deadline) {
 	job->fun = fun;
 	job->pvParameters = pvParameters;
@@ -16,6 +7,15 @@ static void vJobCreate(JobType_t* job, void (*fun)(void*), void* pvParameters, T
 	job->xDeadline = deadline;
 	job->cState = STATE_READY;
 	job->xHandle = NULL;
+}
+
+static void vJobServer(void* pvParameters) {
+	JobType_t* job = (JobType_t*) pvParameters;
+	job->cState = STATE_RUNNING;
+	job->fun(job->pvParameters);
+	job->cState = STATE_FINISHED;
+
+	vTaskDelete(0);
 }
 
 static void vJobRun(void* pvParameters) {
