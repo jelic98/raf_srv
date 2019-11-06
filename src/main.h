@@ -12,20 +12,26 @@
 #include "math.h"
 #include "time.h"
 
-#define FLAG_DEBUG 0
-#define TIMEOUT_SCHED_MILLIS 5
+#define STATE_READY 0
+#define STATE_RUNNING 1
+#define STATE_FINISHED 2
+#define INPUT_FILE "Batch file path: "
+#define ERROR_FILE "File error occurred\n"
 
-typedef struct xTaskParams {
-	int id;
-	long start;
-	long end;
-	long puts;
-	long event;
-	TickType_t deadline;
-	TaskHandle_t handle;
-} xTaskParams;
+typedef struct JobType_t {
+	void (*fun)(void*);
+	void* pvParameters;
+	TickType_t xArrival;
+	TickType_t xDeadline;
+	char cState;
+	TaskHandle_t xHandle;
+} JobType_t;
 
-xTaskParams xTasks[MAX_TASK_COUNT];
+typedef struct BatchType_t {
+	struct JobType_t* pxJobs;
+	int* piSchedule;
+	BaseType_t xSize;
+} BatchType_t;
 
 void vSchedStart();
 
