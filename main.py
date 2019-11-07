@@ -21,7 +21,9 @@ class Resource:
 class Job:
     def __init__(self, name):
         self.name = name
-        self.resources = [IntVar()] * len(resources)
+        self.resources = []
+        for i in range(len(resources)):
+            self.resources.append(IntVar())
         
     def __eq__(self, other):
         if not isinstance(other, Job):
@@ -41,8 +43,10 @@ class Task:
         self.time_compute = 0
         self.time_deadline = 0
         self.job = None
-        self.precedence = [IntVar()] * len(tasks)
+        self.precedence = []
         self.added = False
+        for i in range(len(tasks)):
+            self.precedence.append(IntVar())
 
     def __eq__(self, other):
         if not isinstance(other, Task):
@@ -264,7 +268,7 @@ class App(Frame):
             fout.write(job.name)
             for i in range(len(tasks)):
                 if job.resources[i].get() == 1:
-                    fout.write("," + i)
+                    fout.write("," + str(i))
             fout.write("\r\n")
         # Tasks
         fout.write(str(len(tasks)) + "\r\n")
@@ -274,10 +278,10 @@ class App(Frame):
                 start=task.time_start,
                 compute=task.time_compute,
                 deadline=task.time_deadline,
-                job=task.job.name))
+                job=jobs.index(task.job)))
             for i in range(len(tasks)):
                 if task.precedence[i].get() == 1:
-                    fout.write("," + i)
+                    fout.write("," + str(i))
             fout.write("\r\n")
         fout.close()
     

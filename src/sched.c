@@ -1,6 +1,40 @@
 #include "main.h"
 
-static void vJobCreate(JobType_t* job, void (*fun)(void*), void* pvParameters, TickType_t arrival, TickType_t deadline) {
+static void vBatchLoad() {
+	char path[MAX_PATH_LEN];
+
+	printf(INPUT_FILE);
+	scanf("%s", path);
+
+	FILE* fin = fopen(path, "r");
+
+	if(!fin) {
+		printf(ERROR_FILE);
+		return;
+	}
+
+	int n, i;
+	char line[MAX_LINE_LEN] = {0};
+	char sep[2] = ",";
+
+	fscanf(fin, "%d", &n);
+
+	for(i = 0; i < n; i++) {
+		fgets(line, MAX_LINE_LEN, fin);
+
+		char* name = strtok(line, sep);
+		int delay = strtoi(strtok(NULL, sep));
+
+		printf("NAME: %s DELAY: %d\n", name, delay);
+	}
+
+	if(fclose(fin) == EOF) {
+		printf(ERROR_FILE);
+	}
+}
+
+static void
+vJobCreate(JobType_t* job, void (*fun)(void*), void* pvParameters, TickType_t arrival, TickType_t deadline) {
 	job->fun = fun;
 	job->pvParameters = pvParameters;
 	job->xArrival = arrival;
@@ -112,6 +146,8 @@ static void vSpringScheduler(void* pvParameters) {
 }
 
 void vSchedStart() {
+	vBatchLoad();
+
 	JobType_t job1, job2, job3, job4, job5, job6;
 	vJobCreate(&job1, vJobRun, ".", 0, 20);
 	vJobCreate(&job2, vJobRun, "-", 0, 50);

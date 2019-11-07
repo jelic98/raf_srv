@@ -15,8 +15,11 @@
 #define STATE_READY 0
 #define STATE_RUNNING 1
 #define STATE_FINISHED 2
+#define PATH_REPORT "report.csv"
 #define INPUT_FILE "Batch file path: "
 #define ERROR_FILE "File error occurred\n"
+#define MAX_PATH_LEN 128
+#define MAX_LINE_LEN 64
 
 typedef struct JobType_t {
 	void (*fun)(void*);
