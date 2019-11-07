@@ -7,6 +7,10 @@ Job 1,0
 Job 2,1,2
 Job 3
 3
+Heuristic 1,1
+Heuristic 2,-1
+Heuristic 3,2
+3
 Prvi task,10,20,30,0
 Drugi task,20,50,100,1,0
 Treci task,20,20,30,0

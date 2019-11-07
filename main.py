@@ -36,6 +36,22 @@ class Job:
     def __str__(self):
         return self.name
 
+class Heuristic:
+    def __init__(self, name):
+        self.name = name
+        self.order = -1
+    
+    def __eq__(self, other):
+        if not isinstance(other, Job):
+            return False
+        return self.name == other.name
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __str__(self):
+        return self.name
+
 class Task:
     def __init__(self):
         self.name = "Task " + str(len(tasks) + 1)
@@ -154,19 +170,35 @@ class App(Frame):
         self.btn_add_resource = Button(self, text="Add resource", command=self.action_add_resource)
         self.btn_add_resource.grid(row=12, column=0, columnspan=2, padx=10, pady=10)
 
+        # Heuristic name
+        self.lbl_heuristic_name = Label(self, text="Heuristic")
+        self.lbl_heuristic_name.grid(row=13, column=0)
+        self.cmb_heuristic_name = Combobox(self, values=heuristics)
+        self.cmb_heuristic_name.grid(row=13, column=1, padx=10, pady=10)
+        self.cmb_heuristic_name.current(heuristics.index(current_heuristic))
+        self.cmb_heuristic_name.bind("<<ComboboxSelected>>", self.action_select_heuristic_name)
+
+        # Heuristic order
+        self.lbl_heuristic_order = Label(self, text="Heuristic order")
+        self.lbl_heuristic_order.grid(row=14, column=0)
+        self.cmb_heuristic_order = Combobox(self, values=list(range(len(heuristics))))
+        self.cmb_heuristic_order.grid(row=14, column=1, padx=10, pady=10)
+        self.cmb_heuristic_order.current(current_heuristic.order)
+        self.cmb_heuristic_order.bind("<<ComboboxSelected>>", self.action_select_heuristic_order)
+
         # Path
         self.lbl_path = Label(self, text="Path")
-        self.lbl_path.grid(row=13, column=0, padx=10, pady=10)
+        self.lbl_path.grid(row=15, column=0, padx=10, pady=10)
         self.ent_path = Entry(self)
-        self.ent_path.grid(row=13, column=1, padx=10, pady=10)
+        self.ent_path.grid(row=15, column=1, padx=10, pady=10)
 
         # Save batch
         self.btn_save = Button(self, text="Save batch", command=self.action_save)
-        self.btn_save.grid(row=14, column=0, padx=10, pady=10)
+        self.btn_save.grid(row=16, column=0, padx=10, pady=10)
 
         # Load report
         self.btn_load = Button(self, text="Load report", command=self.action_load)
-        self.btn_load.grid(row=14, column=1, padx=10, pady=10)
+        self.btn_load.grid(row=16, column=1, padx=10, pady=10)
         
         self.pack(fill=BOTH, expand=1)
    
@@ -203,6 +235,19 @@ class App(Frame):
                 current_job = job
                 self.layout_refresh()
                 break
+
+    def action_select_heuristic_name(self, event):
+        global current_heuristic
+        for heuristic in heuristics:
+            if heuristic.name == self.cmb_heuristic_name.get():
+                current_heuristic = heuristic
+                current_heuristic.order = 0
+                self.layout_refresh()
+                break
+
+    def action_select_heuristic_order(self, event):
+        current_heuristic.order = self.cmb_heuristic_order.get()
+        self.layout_refresh()
 
     def action_add_task(self):
         global current_task
@@ -270,6 +315,16 @@ class App(Frame):
                 if job.resources[i].get() == 1:
                     fout.write("," + str(i))
             fout.write("\r\n")
+        # Heuristics
+        heuristic_sorted = sorted(heuristics, key=lambda h: h.order)
+        heuristic_sorted = [h for h in heuristic_sorted if h > 0]
+        fout.write(str(len(heuristics_sorted)) + "\r\n")
+        for heuristic in heuristics_sorted:
+            if heuristic.order < 0:
+                continue
+            fout.write("{name},{order}\r\n".format(
+                name=heuristic.name,
+                order=heuristic.order))
         # Tasks
         fout.write(str(len(tasks)) + "\r\n")
         for task in tasks:
@@ -319,9 +374,20 @@ jobs = [
     Job("Job 2"),
     Job("Job 3")
 ]
+heuristics = [
+    Heuristic("FCFS"),
+    Heuristic("SJF"),
+    Heuristic("EDF"),
+    Heuristic("ESTF"),
+    Heuristic("EDFSJF"),
+    Heuristic("EDFESTF"),
+    Heuristic("E")
+]
 
 current_task = Task()
 current_job = jobs[0]
+current_heuristic = heuristics[0]
+current_heuristic.order = 0
 
 app.layout_refresh()
 root.mainloop() 
