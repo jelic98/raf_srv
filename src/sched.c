@@ -1,3 +1,4 @@
+#define H_MAIN_IMPLEMENT
 #include "main.h"
 
 void vJobPrinter() {
@@ -47,10 +48,10 @@ int iCompareE(TaskType_t* t1, TaskType_t* t2) {
 }
 
 static void vTaskServer(void* pvParameters) {
-	TaskType_t* task = (TaskType_t*) pvParameters;
-	task->cState = STATE_RUNNING;
-	task->fun(task->pvParameters);
-	task->cState = STATE_FINISHED;
+	TaskType_t* xTask = (TaskType_t*) pvParameters;
+	xTask->cState = STATE_RUNNING;
+	xTask->pxJob->fun();
+	xTask->cState = STATE_FINISHED;
 
 	vTaskDelete(0);
 }
@@ -59,16 +60,18 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 	portCHAR path[MAX_PATH_LEN];
 
 	printf(INPUT_FILE);
+	fflush(stdout);
 	scanf("%s", path);
 
 	FILE* fin = fopen(path, "r");
 
 	if(!fin) {
 		printf(ERROR_FILE);
+		fflush(stdout);
 		return;
 	}
 
-	int i, iResourceCount, iJobCount, iHeuristicCount, iTaskCount;
+	int i, j, iResourceCount, iJobCount, iHeuristicCount, iTaskCount;
 	portCHAR pcLine[MAX_LINE_LEN];
 	portCHAR pcSep[2] = ",";
 
@@ -93,14 +96,13 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 
 		int j = -1;
 
-		while(*pxJobs[++j].name) {
-			if(!strcmp(pcName, pxJobs[j].name)) {
-				pxJobs[j].pxRes = xOrder;
-				pxJobs[j]->pxResources = (ResourceType_t*) malloc(iResourceCount * sizeof(ResourceType_t));
-				pxJobs[j]->xResourceCount = 0;
+		while(*pxJobs[++j].pcName) {
+			if(!strcmp(pcName, pxJobs[j].pcName)) {
+				pxJobs[j].pxResources = (ResourceType_t*) malloc(iResourceCount * sizeof(ResourceType_t));
+				pxJobs[j].xResourceCount = 0;
 
 				while(pcResource) {
-					pxJobs[j]->pxResources[pxJobs[j]->xResourceCount++] = pxResources[strtol(pcResource, NULL, 10)];
+					pxJobs[j].pxResources[pxJobs[j].xResourceCount++] = pxResources[strtol(pcResource, NULL, 10)];
 
 					pcResource = strtok(NULL, pcSep);
 				}
@@ -111,13 +113,13 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 	}
 
 	// Heuristics
-	fscanf(fin, "%d\n", iHeuristicCount);
+	fscanf(fin, "%d\n", &iHeuristicCount);
 	pxBatch->xHeuristicCount = 0;
 	pxBatch->pxHeuristics = (HeuristicType_t*) malloc(iHeuristicCount * sizeof(HeuristicType_t));
 
 	for(i = 0; i < iHeuristicCount && fgets(pcLine, MAX_LINE_LEN, fin); i++) {
 		portCHAR* pcName = strtok(pcLine, pcSep);
-		BatchType_t xOrder = strtol(strtok(NULL, pcSep), NULL, 10);
+		BaseType_t xOrder = strtol(strtok(NULL, pcSep), NULL, 10);
 
 		if(xOrder < 0) {
 			continue;
@@ -125,8 +127,8 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 
 		int j = -1;
 
-		while(*pxHeuristics[++j].name) {
-			if(!strcmp(pcName, pxHeuristics[j].name)) {
+		while(*pxHeuristics[++j].pcName) {
+			if(!strcmp(pcName, pxHeuristics[j].pcName)) {
 				pxBatch->pxHeuristics[pxBatch->xHeuristicCount] = pxHeuristics[j];
 				pxBatch->pxHeuristics[pxBatch->xHeuristicCount].xOrder = xOrder;
 				pxBatch->xHeuristicCount++;
@@ -135,46 +137,46 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 		}
 	}
 
-	HeuristicType_t* pxHeuristic;
+	HeuristicType_t pxHeuristic;
 
 	for(i = 0; i < pxBatch->xHeuristicCount - 1; i++) {
 		for(j = 0; j < pxBatch->xHeuristicCount - i - 1; j++) {
 			if(pxBatch->pxHeuristics[j].xOrder < pxBatch->pxHeuristics[j + 1].xOrder) {
-				pxHeuristic = pxBatch->pxHeuristics[j] pxBatch->pxHeuristics[j] = pxBatch->pxHeuristics[j + 1];
+				pxHeuristic = pxBatch->pxHeuristics[j];
+				pxBatch->pxHeuristics[j] = pxBatch->pxHeuristics[j + 1];
 				pxBatch->pxHeuristics[j + 1] = pxHeuristic;
 			}
 		}
 	}
 
 	// Tasks
-	fscanf(fin, "%d\n", &n);
+	fscanf(fin, "%d\n", &iTaskCount);
 	pxBatch->xTaskCount = iTaskCount;
 	pxBatch->pxTasks = (TaskType_t*) malloc(iTaskCount * sizeof(TaskType_t));
 
 	for(i = 0; i < iTaskCount && fgets(pcLine, MAX_LINE_LEN, fin); i++) {
 		TaskType_t xTask;
-		strcpy(xTask->pxName, strtok(pcLine, pcSep));
-		xTask->xStart = strtol(strtok(NULL, pcSep), NULL, 10);
-		xTask->xCompute = strtol(strtok(NULL, pcSep), NULL, 10);
-		xTask->xDeadline = strtol(strtok(NULL, pcSep), NULL, 10);
-		xTask->pxJob = &pxJobs[strtol(strtok(NULL, pcSep), NULL, 10)];
-		xTask->cState = STATE_READY;
-		xTask->xHandle = NULL;
+		strcpy(xTask.pcName, strtok(pcLine, pcSep));
+		xTask.xStart = strtol(strtok(NULL, pcSep), NULL, 10);
+		xTask.xCompute = strtol(strtok(NULL, pcSep), NULL, 10);
+		xTask.xDeadline = strtol(strtok(NULL, pcSep), NULL, 10);
+		xTask.pxJob = &pxJobs[strtol(strtok(NULL, pcSep), NULL, 10)];
+		xTask.cState = STATE_READY;
+		xTask.xHandle = NULL;
 
 		portCHAR* pcPrecedence = strtok(NULL, pcSep);
 
-		xTask->pxPrecedence = (BaseType_t*) malloc(iTaskCount * sizeof(BaseType_t));
-		xTask->xPrecedenceCount = 0;
+		xTask.pxPrecedence = (BaseType_t*) malloc(iTaskCount * sizeof(BaseType_t));
+		xTask.xPrecedenceCount = 0;
 
 		while(pcPrecedence) {
 			BaseType_t xPrecedence = strtol(pcPrecedence, NULL, 10);
 
-			if(pxPrecedence < 0) {
+			if(xPrecedence < 0) {
 				continue;
 			}
 
-			pxPrecedence[xTask->xPrecedenceCount] = xPrecedence;
-			xTask->xPrecedenceCount++;
+			xTask.pxPrecedence[xTask.xPrecedenceCount++] = xPrecedence;
 
 			pcPrecedence = strtok(NULL, pcSep);
 		}
@@ -184,6 +186,7 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 
 	if(fclose(fin) == EOF) {
 		printf(ERROR_FILE);
+		fflush(stdout);
 	}
 }
 
@@ -196,7 +199,7 @@ static void vBatchSchedule(BatchType_t* pxBatch) {
 
 	for(i = 0; i < pxBatch->xTaskCount - 1; i++) {
 		for(j = 0; j < pxBatch->xTaskCount - i - 1; j++) {
-			if(pxBatch->cmp[0].fun(pxBatch->pxTasks[j], pxBatch->pxTasks[j + 1]) > 0) {
+			if(pxBatch->pxHeuristics[0].fun(&pxBatch->pxTasks[j], &pxBatch->pxTasks[j + 1]) > 0) {
 				p = pxBatch->piSchedule[j];
 				pxBatch->piSchedule[j] = pxBatch->piSchedule[j + 1];
 				pxBatch->piSchedule[j + 1] = p;
@@ -209,12 +212,13 @@ static void vBatchSchedule(BatchType_t* pxBatch) {
 	for(i = 0; i < pxBatch->xTaskCount; i++) {
 		TaskType_t xTask = pxBatch->pxTasks[pxBatch->piSchedule[i]];
 
-		if(xDelay + xTask->xCompute > xTask->xDeadline) {
+		if(xDelay + xTask.xCompute > xTask.xDeadline) {
 			printf(ERROR_SCHEDULE);
+			fflush(stdout);
 			exit(EXIT_FAILURE);
 		}
 
-		xDelay += xTask->xCompute;
+		xDelay += xTask.xCompute;
 	}
 }
 
@@ -237,7 +241,7 @@ static void vSpringScheduler(void* pvParameters) {
 
 	for(i = 0; i < pxBatch->xTaskCount; i++) {
 		xTaskCreate(vTaskServer,
-		            (const portCHAR*) pxBatch->pxTasks[i].name,
+		            (const portCHAR*) pxBatch->pxTasks[i].pcName,
 		            configMINIMAL_STACK_SIZE,
 		            &(pxBatch->pxTasks[i]),
 		            PRIORITY_READY,
@@ -249,7 +253,8 @@ static void vSpringScheduler(void* pvParameters) {
 	for(i = 0; i < pxBatch->xTaskCount; i++) {
 		TaskType_t xTask = pxBatch->pxTasks[pxBatch->piSchedule[i]];
 
-		fprintf(pxFout, "%s,%d\r\n", xTask.name, xTaskGetTickCount();
+		fprintf(pxFout, "%s,%d\r\n", xTask.pcName, xTaskGetTickCount());
+		fflush(pxFout);
 		
 		vTaskPrioritySet(xTask.xHandle, PRIORITY_RUN);
 	}
@@ -258,7 +263,7 @@ static void vSpringScheduler(void* pvParameters) {
 		int finished = 1;
 
 		for(i = 0; i < pxBatch->xTaskCount; i++) {
-			if(pxBatch->xTasks[i].cState != STATE_FINISHED) {
+			if(pxBatch->pxTasks[i].cState != STATE_FINISHED) {
 				finished = 0;
 				break;
 			}

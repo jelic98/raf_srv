@@ -31,6 +31,18 @@
 
 FILE* pxFout;
 
+typedef struct ResourceType_t {
+	portCHAR* pcName;
+	TickType_t xDelay;
+} ResourceType_t;
+
+typedef struct JobType_t {
+	portCHAR* pcName;
+	void (*fun)();
+	ResourceType_t* pxResources;
+	BaseType_t xResourceCount;
+} JobType_t;
+
 typedef struct TaskType_t {
 	portCHAR pcName[MAX_NAME_LEN];
 	TickType_t xStart;
@@ -38,10 +50,17 @@ typedef struct TaskType_t {
 	TickType_t xDeadline;
 	JobType_t* pxJob;
 	BaseType_t* pxPrecedence;
-	BaseType_t pxPrecedenceCount;
+	BaseType_t xPrecedenceCount;
 	portCHAR cState;
 	TaskHandle_t xHandle;
 } TaskType_t;
+
+typedef struct HeuristicType_t {
+	portCHAR* pcName;
+	int (*fun)(TaskType_t*, TaskType_t*);
+	BaseType_t xOrder;
+
+} HeuristicType_t;
 
 typedef struct BatchType_t {
 	struct TaskType_t* pxTasks;
@@ -51,32 +70,8 @@ typedef struct BatchType_t {
 	int* piSchedule;
 } BatchType_t;
 
-typedef struct ResourceType_t {
-	portCHAR* pcName;
-	TickType_t xDelay;
-} ResourceType_t;
-
-typedef struct JobType_t {
-	portCHAR* pcName;
-	void (*fun)(int);
-	ResourceType_t* pxResources;
-	BaseType_t xResourceCount;
-} JobType_t;
-
-typedef struct HeuristicType_t {
-	portCHAR* pcName;
-	void (*fun)(TaskType_t*, TaskType_t*)*;
-	BaseType_t xOrder;
-
-} HeuristicType_t;
-
 void vJobPrinter();
 void vJobFactorizer();
-
-JobType_t pxJobs[] = {
-	{"Printer", &vJobPrinter},
-	{"Factorizer", &vJobFactorizer}
-};
 
 int iCompareFCFS(TaskType_t*, TaskType_t*); // First Come First Served
 int iCompareSJF(TaskType_t*, TaskType_t*); // Shortest Job First
@@ -86,15 +81,22 @@ int iCompareEDFSJF(TaskType_t*, TaskType_t*); // EDF + SJF
 int iCompareEDFESTF(TaskType_t*, TaskType_t*); // EDF + ESTF
 int iCompareE(TaskType_t*, TaskType_t*); // Eligibility
 
-HeuristicType_t pxHeuristics[] = {
-	{"FCFS", &iCompareFCFS},
-	{"SJF", &iCompareSJF},
-	{"EDF", &iCompareEDF},
-	{"ESTF", &iCompareESTF},
-	{"EDFSJF", &iCompareEDFSJF},
-	{"EDFESTF", &iCompareEDFESTF},
-	{"E", &iCompareE}
-};
+#ifdef H_MAIN_IMPLEMENT
+	JobType_t pxJobs[] = {
+		{"Printer", &vJobPrinter},
+		{"Factorizer", &vJobFactorizer}
+	};
+
+	HeuristicType_t pxHeuristics[] = {
+		{"FCFS", &iCompareFCFS},
+		{"SJF", &iCompareSJF},
+		{"EDF", &iCompareEDF},
+		{"ESTF", &iCompareESTF},
+		{"EDFSJF", &iCompareEDFSJF},
+		{"EDFESTF", &iCompareEDFESTF},
+		{"E", &iCompareE}
+	};
+#endif
 
 void vSchedStart();
 
