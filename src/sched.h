@@ -28,7 +28,7 @@ typedef struct ResourceType_t {
 
 typedef struct JobType_t {
 	portCHAR* pcName;
-	void (*fun)();
+	void (*vJobWork)();
 	ResourceType_t* pxResources;
 	BaseType_t xResourceCount;
 } JobType_t;
@@ -47,7 +47,7 @@ typedef struct TaskType_t {
 
 typedef struct HeuristicType_t {
 	portCHAR* pcName;
-	BaseType_t (*fun)(TaskType_t*, TaskType_t*);
+	BaseType_t (*xCompare)(TaskType_t*, TaskType_t*);
 	BaseType_t xOrder;
 
 } HeuristicType_t;

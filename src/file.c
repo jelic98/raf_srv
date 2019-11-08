@@ -134,3 +134,16 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 		fflush(stdout);
 	}
 }
+
+void vReportOpen() {
+	pxFout = fopen(PATH_REPORT, "w");
+}
+
+void vReportAdd(TaskType_t* xTask) {
+	fprintf(pxFout, "%s,%d\r\n", xTask.pcName, xTaskGetTickCount());
+	fflush(pxFout);
+}
+
+void vReportClose() {
+	fclose(pxFout);
+}

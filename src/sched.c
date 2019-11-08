@@ -10,20 +10,24 @@ static void vBatchSchedule(BatchType_t* pxBatch) {
 
 	for(i = 0; i < pxBatch->xTaskCount - 1; i++) {
 		for(j = 0; j < pxBatch->xTaskCount - i - 1; j++) {
-			if(pxBatch->pxHeuristics[0].fun(&pxBatch->pxTasks[j], &pxBatch->pxTasks[j + 1]) > 0) {
+			if(pxBatch->pxHeuristics[0].xCompare(&pxBatch->pxTasks[j], &pxBatch->pxTasks[j + 1]) > 0) {
 				p = pxBatch->pxSchedule[j];
 				pxBatch->pxSchedule[j] = pxBatch->pxSchedule[j + 1];
 				pxBatch->pxSchedule[j + 1] = p;
 			}
 		}
 	}
+}
+
+static void vBatchTest(BatchType_t* pxBatch) {
+	int i;
 
 	TickType_t xDelay = 0;
 
 	for(i = 0; i < pxBatch->xTaskCount; i++) {
 		TaskType_t xTask = pxBatch->pxTasks[pxBatch->pxSchedule[i]];
 
-		if(xDelay + xTask.xCompute > xTask.xDeadline) {
+		if(i && xDelay + xTask.xCompute > xTask.xDeadline) {
 			printf(ERROR_SCHEDULE);
 			fflush(stdout);
 			exit(EXIT_FAILURE);
@@ -37,19 +41,31 @@ static void vBatchClear(BatchType_t* pxBatch) {
 	int i;
 
 	for(i = 0; i < pxBatch->xTaskCount; i++) {
-		free(pxBatch->pxTasks[i].pxPrecedence);
-	}
+		TaskType_t xTask = pxBatch->pxTasks[i];
 
-	// TODO Free allocated memory (resources, precedence)
+		if(xTask.xJob.pxResources) {
+			free(xTask.xJob.pxResources);
+			xTask.xJob.pxResources = NULL;
+		}
+		
+		free(xTask.pxPrecedence);
+		xTask.pxPrecedence = NULL;
+		
+		free(&(pxBatch.pxTasks[i]));
+		pxBatch.pxTasks[i] = NULL;
+	}
 
 	free(pxBatch->pxTasks);
 	free(pxBatch->pxHeuristics);
+
+	pxBatch->pxTasks = NULL;
+	pxBatch->pxHeuristics = NULL;
 }
 
 static void vSpringServer(void* pvParameters) {
 	TaskType_t* xTask = (TaskType_t*) pvParameters;
 	xTask->cState = STATE_RUNNING;
-	xTask->pxJob->fun();
+	xTask->pxJob->vJobWork();
 	xTask->cState = STATE_FINISHED;
 
 	vTaskDelete(0);
@@ -68,14 +84,11 @@ static void vSpringScheduler(void* pvParameters) {
 		            &(pxBatch->pxTasks[i].xHandle));
 	}
 
-	pxFout = fopen(PATH_REPORT, "w");
+	vReportOpen();
 
 	for(i = 0; i < pxBatch->xTaskCount; i++) {
 		TaskType_t xTask = pxBatch->pxTasks[pxBatch->pxSchedule[i]];
-
-		fprintf(pxFout, "%s,%d\r\n", xTask.pcName, xTaskGetTickCount());
-		fflush(pxFout);
-		
+		vReportAdd(xTask);
 		vTaskPrioritySet(xTask.xHandle, PRIORITY_RUN);
 	}
 
@@ -90,8 +103,8 @@ static void vSpringScheduler(void* pvParameters) {
 		}
 
 		if(finished) {
+			vReportClose();
 			vBatchClear(pxBatch);
-			fclose(pxFout);
 			vTaskDelete(NULL);
 			break;
 		}
@@ -105,7 +118,8 @@ void vSchedStart() {
 
 	vBatchLoad(&xBatch);
 	vBatchSchedule(&xBatch);
+	vBatchTest(pxBatch);
 
-	xTaskCreate(vSpringScheduler, "", configMINIMAL_STACK_SIZE, &xBatch, PRIORITY_SCHED, NULL);
+	xTaskCreate(vSpringScheduler, (const portCHAR*) "", configMINIMAL_STACK_SIZE, &xBatch, PRIORITY_SCHED, NULL);
 	vTaskStartScheduler();
 }
