@@ -46,16 +46,6 @@ int iCompareE(TaskType_t* t1, TaskType_t* t2) {
 	return 0;
 }
 
-static void vTaskInit(TaskType_t* task, void (*fun)(void*), char* name, TickType_t start, TickType_t compute, TickType_t deadline) {
-	task->fun = fun;
-	strcpy(task->pxName, name);
-	task->xStart = start;
-	task->xCompute = compute;
-	task->xDeadline = deadline;
-	task->cState = STATE_READY;
-	task->xHandle = NULL;
-}
-
 static void vTaskServer(void* pvParameters) {
 	TaskType_t* task = (TaskType_t*) pvParameters;
 	task->cState = STATE_RUNNING;
@@ -65,8 +55,8 @@ static void vTaskServer(void* pvParameters) {
 	vTaskDelete(0);
 }
 
-static void vBatchLoad(BatchType_t* batch) {
-	char path[MAX_PATH_LEN];
+static void vBatchLoad(BatchType_t* pxBatch) {
+	portCHAR path[MAX_PATH_LEN];
 
 	printf(INPUT_FILE);
 	scanf("%s", path);
@@ -79,68 +69,117 @@ static void vBatchLoad(BatchType_t* batch) {
 	}
 
 	int i, iResourceCount, iJobCount, iHeuristicCount, iTaskCount;
-	char line[MAX_LINE_LEN];
-	char sep[2] = ",";
-
-	fscanf(fin, "%d\n", &iResourceCount);
+	portCHAR pcLine[MAX_LINE_LEN];
+	portCHAR pcSep[2] = ",";
 
 	// Resources
-	for(i = 0; i < iResourceCount && fgets(line, MAX_LINE_LEN, fin); i++) {
-		char* name = strtok(line, sep);
-		int delay = strtol(strtok(NULL, sep), NULL, 10);
-	}
+	fscanf(fin, "%d\n", &iResourceCount);
+	ResourceType_t* pxResources = (ResourceType_t*) malloc(iResourceCount * sizeof(ResourceType_t));
 
-	fscanf(fin, "%d\n", &iJobCount);
+	for(i = 0; i < iResourceCount && fgets(pcLine, MAX_LINE_LEN, fin); i++) {
+		portCHAR* pcName = strtok(pcLine, pcSep);
+		TickType_t xDelay = strtol(strtok(NULL, pcSep), NULL, 10);
+
+		strcpy(pxResources[i].pcName, pcName);
+		pxResources[i].xDelay = xDelay;
+	}
 
 	// Jobs
-	for(i = 0; i < iJobCount && fgets(line, MAX_LINE_LEN, fin); i++) {
-		char* name = strtok(line, sep);
-		char* pcResource = strtok(NULL, sep);
+	fscanf(fin, "%d\n", &iJobCount);
 
-		while(pcResource) {
-			int resource = strtol(pcResource, NULL, 10);
-			pcResource = strtok(NULL, sep);
-		}
-	}
+	for(i = 0; i < iJobCount && fgets(pcLine, MAX_LINE_LEN, fin); i++) {
+		portCHAR* pcName = strtok(pcLine, pcSep);
+		portCHAR* pcResource = strtok(NULL, pcSep);
 
-	fscanf(fin, "%d\n", iHeuristicCount);
-	batch->xHeuristicCount = iHeuristicCount;
-	batch->pxHeuristics = (HeuristicType_t*) malloc(iHeuristicCount * sizeof(HeuristicType_t));
-
-	// Heuristics
-	for(i = 0; i < iHeuristicCount && fgets(line, MAX_LINE_LEN, fin); i++) {
-		char* name = strtok(line, sep);
-		int order = strtol(strtok(NULL, sep), NULL, 10);
-	
 		int j = -1;
-	
-		while(*heuristics[++j].key) {
-			if(!strcmp(name, heuristics[j].key)) {
-				batch->[i] = heuristics[j];
+
+		while(*pxJobs[++j].name) {
+			if(!strcmp(pcName, pxJobs[j].name)) {
+				pxJobs[j].pxRes = xOrder;
+				pxJobs[j]->pxResources = (ResourceType_t*) malloc(iResourceCount * sizeof(ResourceType_t));
+				pxJobs[j]->xResourceCount = 0;
+
+				while(pcResource) {
+					pxJobs[j]->pxResources[pxJobs[j]->xResourceCount++] = pxResources[strtol(pcResource, NULL, 10)];
+
+					pcResource = strtok(NULL, pcSep);
+				}
+
 				break;
 			}
 		}
 	}
 
-	fscanf(fin, "%d\n", &n);
-	batch->xTaskCount = iTaskCount;
-	batch->pxTasks = (TaskType_t*) malloc(iTaskCount * sizeof(TaskType_t));
+	// Heuristics
+	fscanf(fin, "%d\n", iHeuristicCount);
+	pxBatch->xHeuristicCount = 0;
+	pxBatch->pxHeuristics = (HeuristicType_t*) malloc(iHeuristicCount * sizeof(HeuristicType_t));
+
+	for(i = 0; i < iHeuristicCount && fgets(pcLine, MAX_LINE_LEN, fin); i++) {
+		portCHAR* pcName = strtok(pcLine, pcSep);
+		BatchType_t xOrder = strtol(strtok(NULL, pcSep), NULL, 10);
+
+		if(xOrder < 0) {
+			continue;
+		}
+
+		int j = -1;
+
+		while(*pxHeuristics[++j].name) {
+			if(!strcmp(pcName, pxHeuristics[j].name)) {
+				pxBatch->pxHeuristics[pxBatch->xHeuristicCount] = pxHeuristics[j];
+				pxBatch->pxHeuristics[pxBatch->xHeuristicCount].xOrder = xOrder;
+				pxBatch->xHeuristicCount++;
+				break;
+			}
+		}
+	}
+
+	HeuristicType_t* pxHeuristic;
+
+	for(i = 0; i < pxBatch->xHeuristicCount - 1; i++) {
+		for(j = 0; j < pxBatch->xHeuristicCount - i - 1; j++) {
+			if(pxBatch->pxHeuristics[j].xOrder < pxBatch->pxHeuristics[j + 1].xOrder) {
+				pxHeuristic = pxBatch->pxHeuristics[j] pxBatch->pxHeuristics[j] = pxBatch->pxHeuristics[j + 1];
+				pxBatch->pxHeuristics[j + 1] = pxHeuristic;
+			}
+		}
+	}
 
 	// Tasks
-	for(i = 0; i < iTaskCount && fgets(line, MAX_LINE_LEN, fin); i++) {
-		char* name = strtok(line, sep);
-		int start = strtol(strtok(NULL, sep), NULL, 10);
-		int compute = strtol(strtok(NULL, sep), NULL, 10);
-		int deadline = strtol(strtok(NULL, sep), NULL, 10);
-		int job = strtol(strtok(NULL, sep), NULL, 10);
-		char* pcPrecedence = strtok(NULL, sep);
+	fscanf(fin, "%d\n", &n);
+	pxBatch->xTaskCount = iTaskCount;
+	pxBatch->pxTasks = (TaskType_t*) malloc(iTaskCount * sizeof(TaskType_t));
+
+	for(i = 0; i < iTaskCount && fgets(pcLine, MAX_LINE_LEN, fin); i++) {
+		TaskType_t xTask;
+		strcpy(xTask->pxName, strtok(pcLine, pcSep));
+		xTask->xStart = strtol(strtok(NULL, pcSep), NULL, 10);
+		xTask->xCompute = strtol(strtok(NULL, pcSep), NULL, 10);
+		xTask->xDeadline = strtol(strtok(NULL, pcSep), NULL, 10);
+		xTask->pxJob = &pxJobs[strtol(strtok(NULL, pcSep), NULL, 10)];
+		xTask->cState = STATE_READY;
+		xTask->xHandle = NULL;
+
+		portCHAR* pcPrecedence = strtok(NULL, pcSep);
+
+		xTask->pxPrecedence = (BaseType_t*) malloc(iTaskCount * sizeof(BaseType_t));
+		xTask->xPrecedenceCount = 0;
 
 		while(pcPrecedence) {
-			int precedence = strtol(pcPrecedence, NULL, 10);
-			pcPrecedence = strtok(NULL, sep);
+			BaseType_t xPrecedence = strtol(pcPrecedence, NULL, 10);
+
+			if(pxPrecedence < 0) {
+				continue;
+			}
+
+			pxPrecedence[xTask->xPrecedenceCount] = xPrecedence;
+			xTask->xPrecedenceCount++;
+
+			pcPrecedence = strtok(NULL, pcSep);
 		}
-	
-		vTaskInit(&(batch->pxTasks[i]), vTaskPrinter, name, start, compute, deadline);
+
+		pxBatch->pxTasks[i] = xTask;
 	}
 
 	if(fclose(fin) == EOF) {
@@ -148,74 +187,100 @@ static void vBatchLoad(BatchType_t* batch) {
 	}
 }
 
-static void vBatchSchedule(BatchType_t* batch) {
+static void vBatchSchedule(BatchType_t* pxBatch) {
 	int i, j, p;
 
-	for(i = 0; i < batch->xTaskCount; i++) {
-		batch->piSchedule[i] = i;
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		pxBatch->piSchedule[i] = i;
 	}
 
-	for(i = 0; i < batch->xTaskCount - 1; i++) {
-		for(j = 0; j < batch->xTaskCount - i - 1; j++) {
-			if(batch->cmp[0].fun(batch->pxTasks[j], batch->pxTasks[j + 1]) > 0) {
-				p = batch->piSchedule[j];
-				batch->piSchedule[j] = batch->piSchedule[j + 1];
-				batch->piSchedule[j + 1] = p;
+	for(i = 0; i < pxBatch->xTaskCount - 1; i++) {
+		for(j = 0; j < pxBatch->xTaskCount - i - 1; j++) {
+			if(pxBatch->cmp[0].fun(pxBatch->pxTasks[j], pxBatch->pxTasks[j + 1]) > 0) {
+				p = pxBatch->piSchedule[j];
+				pxBatch->piSchedule[j] = pxBatch->piSchedule[j + 1];
+				pxBatch->piSchedule[j + 1] = p;
 			}
 		}
 	}
+
+	TickType_t xDelay = 0;
+
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		TaskType_t xTask = pxBatch->pxTasks[pxBatch->piSchedule[i]];
+
+		if(xDelay + xTask->xCompute > xTask->xDeadline) {
+			printf(ERROR_SCHEDULE);
+			exit(EXIT_FAILURE);
+		}
+
+		xDelay += xTask->xCompute;
+	}
+}
+
+static void vBatchClear(BatchType_t* pxBatch) {
+	int i;
+
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		free(pxBatch->pxTasks[i].pxPrecedence);
+	}
+
+	// TODO Free allocated memory (resources, precedence)
+
+	free(pxBatch->pxTasks);
+	free(pxBatch->pxHeuristics);
 }
 
 static void vSpringScheduler(void* pvParameters) {
-	BatchType_t* batch = (BatchType_t*) pvParameters;
+	BatchType_t* pxBatch = (BatchType_t*) pvParameters;
 	int i;
 
-	for(i = 0; i < batch->xTaskCount; i++) {
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
 		xTaskCreate(vTaskServer,
-		            (const portCHAR*) batch->pxTasks[i].name,
+		            (const portCHAR*) pxBatch->pxTasks[i].name,
 		            configMINIMAL_STACK_SIZE,
-		            &(batch->pxTasks[i]),
+		            &(pxBatch->pxTasks[i]),
 		            PRIORITY_READY,
-		            &(batch->pxTasks[i].xHandle));
+		            &(pxBatch->pxTasks[i].xHandle));
 	}
 
-	fout = fopen(PATH_REPORT, "w");
+	pxFout = fopen(PATH_REPORT, "w");
 
-	for(i = 0; i < batch->xTaskCount; i++) {
-		TaskType_t task = batch->pxTasks[batch->piSchedule[i]];
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		TaskType_t xTask = pxBatch->pxTasks[pxBatch->piSchedule[i]];
+
+		fprintf(pxFout, "%s,%d\r\n", xTask.name, xTaskGetTickCount();
 		
-		fprintf(fout, "%s,%d\r\n", task.name, xTaskGetTickCount();
-		fflush(fout);
-		
-		vTaskPrioritySet(task.xHandle, PRIORITY_RUN);
+		vTaskPrioritySet(xTask.xHandle, PRIORITY_RUN);
 	}
 
 	for(;;) {
 		int finished = 1;
 
-		for(i = 0; i < batch->xTaskCount; i++) {
-			if(batch->xTasks[i].cState != STATE_FINISHED) {
+		for(i = 0; i < pxBatch->xTaskCount; i++) {
+			if(pxBatch->xTasks[i].cState != STATE_FINISHED) {
 				finished = 0;
 				break;
 			}
 		}
 
 		if(finished) {
-			fclose(fout);
+			vBatchClear(pxBatch);
+			fclose(pxFout);
 			vTaskDelete(NULL);
 			break;
 		}
-		
+
 		vTaskDelay(DELAY_SCHED);
 	}
 }
 
 void vSchedStart() {
-	BatchType_t batch;
+	BatchType_t xBatch;
 
-	vBatchLoad(&batch);
-	vBatchSchedule(&batch);
+	vBatchLoad(&xBatch);
+	vBatchSchedule(&xBatch);
 
-	xTaskCreate(vSpringScheduler, "", configMINIMAL_STACK_SIZE, &batch, PRIORITY_SCHED, NULL);
+	xTaskCreate(vSpringScheduler, "", configMINIMAL_STACK_SIZE, &xBatch, PRIORITY_SCHED, NULL);
 	vTaskStartScheduler();
 }

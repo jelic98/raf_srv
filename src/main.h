@@ -19,6 +19,7 @@
 #define PATH_REPORT "report.csv"
 #define INPUT_FILE "Batch file path: "
 #define ERROR_FILE "File error occurred\n"
+#define ERROR_SCHEDULE "Schedule is not possible\n"
 #define MAX_PATH_LEN 128
 #define MAX_LINE_LEN 64
 #define MAX_NAME_LEN 16
@@ -28,41 +29,51 @@
 #define PRIORITY_RUN 4
 #define HEURISTIC_WEIGHT 0.5f
 
-FILE* fout;
+FILE* pxFout;
 
 typedef struct TaskType_t {
-	void (*fun)(void*);
 	portCHAR pcName[MAX_NAME_LEN];
 	TickType_t xStart;
 	TickType_t xCompute;
 	TickType_t xDeadline;
-	char cState;
+	JobType_t* pxJob;
+	BaseType_t* pxPrecedence;
+	BaseType_t pxPrecedenceCount;
+	portCHAR cState;
 	TaskHandle_t xHandle;
 } TaskType_t;
 
 typedef struct BatchType_t {
 	struct TaskType_t* pxTasks;
 	struct HeuristicType_t* pxHeuristics;
-	void (*cmp)(TaskType_t*, TaskType_t*)*;
-	int* piSchedule;
 	BaseType_t xTaskCount;
 	BaseType_t xHeuristicCount;
+	int* piSchedule;
 } BatchType_t;
 
+typedef struct ResourceType_t {
+	portCHAR* pcName;
+	TickType_t xDelay;
+} ResourceType_t;
+
 typedef struct JobType_t {
-	char* key;
+	portCHAR* pcName;
 	void (*fun)(int);
+	ResourceType_t* pxResources;
+	BaseType_t xResourceCount;
 } JobType_t;
 
 typedef struct HeuristicType_t {
-	char* key;
-	void (*fun)(int);
+	portCHAR* pcName;
+	void (*fun)(TaskType_t*, TaskType_t*)*;
+	BaseType_t xOrder;
+
 } HeuristicType_t;
 
 void vJobPrinter();
 void vJobFactorizer();
 
-JobType_t jobs[] = {
+JobType_t pxJobs[] = {
 	{"Printer", &vJobPrinter},
 	{"Factorizer", &vJobFactorizer}
 };
@@ -75,7 +86,7 @@ int iCompareEDFSJF(TaskType_t*, TaskType_t*); // EDF + SJF
 int iCompareEDFESTF(TaskType_t*, TaskType_t*); // EDF + ESTF
 int iCompareE(TaskType_t*, TaskType_t*); // Eligibility
 
-HeuristicType_t heuristics[] = {
+HeuristicType_t pxHeuristics[] = {
 	{"FCFS", &iCompareFCFS},
 	{"SJF", &iCompareSJF},
 	{"EDF", &iCompareEDF},
