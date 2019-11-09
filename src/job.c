@@ -1,5 +1,4 @@
-#define H_JOB_IMPLEMENT
-#include "job.h"
+#include "sched.h"
 
 void vJobPrinter() {
 	int i;

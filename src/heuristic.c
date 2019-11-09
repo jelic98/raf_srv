@@ -1,5 +1,4 @@
-#define H_HEURISTIC_IMPLEMENT
-#include "heuristic.h"
+#include "sched.h"
 
 BaseType_t xCompareFCFS(TaskType_t* t1, TaskType_t* t2) {
 	return t1->xStart - t2->xStart;
@@ -19,16 +18,16 @@ BaseType_t xCompareESTF(TaskType_t* t1, TaskType_t* t2) {
 	BaseType_t xMinDelay1 = INT_MAX;
 	BaseType_t xMinDelay2 = INT_MAX;
 
-	for(i = 0; i < t1->xJob.xResourceCount; i++) {
-		BaseType_t xDelay = pxResources[i].xDelay;
+	for(i = 0; i < t1->pxJob->xResourceCount; i++) {
+		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
 		
 		if(xDelay < xMinDelay1) {
 			xMinDelay1 = xDelay;
 		}
 	}
 
-	for(i = 0; i < t2->xJob.xResourceCount; i++) {
-		BaseType_t xDelay = pxResources[i].xDelay;
+	for(i = 0; i < t2->pxJob->xResourceCount; i++) {
+		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
 		
 		if(xDelay < xMinDelay2) {
 			xMinDelay2 = xDelay;
@@ -49,16 +48,16 @@ BaseType_t xCompareEDFESTF(TaskType_t* t1, TaskType_t* t2) {
 	BaseType_t xMinDelay1 = INT_MAX;
 	BaseType_t xMinDelay2 = INT_MAX;
 
-	for(i = 0; i < t1->xJob.xResourceCount; i++) {
-		BaseType_t xDelay = pxResources[i].xDelay;
+	for(i = 0; i < t1->pxJob->xResourceCount; i++) {
+		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
 		
 		if(xDelay < xMinDelay1) {
 			xMinDelay1 = xDelay;
 		}
 	}
 
-	for(i = 0; i < t2->xJob.xResourceCount; i++) {
-		BaseType_t xDelay = pxResources[i].xDelay;
+	for(i = 0; i < t2->pxJob->xResourceCount; i++) {
+		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
 		
 		if(xDelay < xMinDelay2) {
 			xMinDelay2 = xDelay;
@@ -69,5 +68,5 @@ BaseType_t xCompareEDFESTF(TaskType_t* t1, TaskType_t* t2) {
 }
 
 BaseType_t xCompareE(TaskType_t* t1, TaskType_t* t2) {
-	return t1->pxPrecedenceCount - t2->pxPrecedenceCount;
+	return t1->xPrecedenceCount - t2->xPrecedenceCount;
 }

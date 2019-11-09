@@ -1,9 +1,7 @@
 #ifndef H_SCHED_INCLUDE
 #define H_SCHED_INCLUDE
 
-#include "heuristic.h"
-#include "job.h"
-#include "file.h"
+#include "main.h"
 
 #define STATE_READY 0
 #define STATE_RUNNING 1
@@ -22,7 +20,7 @@
 #define HEURISTIC_WEIGHT 0.5f
 
 typedef struct ResourceType_t {
-	portCHAR* pcName;
+	portCHAR pcName[MAX_NAME_LEN];
 	TickType_t xDelay;
 } ResourceType_t;
 
@@ -46,7 +44,7 @@ typedef struct TaskType_t {
 } TaskType_t;
 
 typedef struct HeuristicType_t {
-	portCHAR* pcName;
+	portCHAR pcName[MAX_NAME_LEN];
 	BaseType_t (*xCompare)(TaskType_t*, TaskType_t*);
 	BaseType_t xOrder;
 
@@ -61,5 +59,16 @@ typedef struct BatchType_t {
 } BatchType_t;
 
 void vSchedStart();
+
+void vJobPrinter();
+void vJobFactorizer();
+
+BaseType_t xCompareFCFS(TaskType_t*, TaskType_t*); // First Come First Served
+BaseType_t xCompareSJF(TaskType_t*, TaskType_t*); // Shortest Job First
+BaseType_t xCompareEDF(TaskType_t*, TaskType_t*); // Earliest Deadline First
+BaseType_t xCompareESTF(TaskType_t*, TaskType_t*); // Earliest Start Time First
+BaseType_t xCompareEDFSJF(TaskType_t*, TaskType_t*); // EDF + SJF
+BaseType_t xCompareEDFESTF(TaskType_t*, TaskType_t*); // EDF + ESTF
+BaseType_t xCompareE(TaskType_t*, TaskType_t*); // Eligibility
 
 #endif
