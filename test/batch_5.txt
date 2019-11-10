@@ -6,7 +6,7 @@ IO,0
 PrintLetters
 PrintNumbers
 PrintSymbols
-1
+2
 EDF,0
 SJF,1
 5

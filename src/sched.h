@@ -41,6 +41,7 @@ typedef struct TaskType_t {
 	BaseType_t* pxPrecedence;
 	BaseType_t xPrecedenceCount;
 	portCHAR cState;
+	portCHAR cScheduled;
 	TaskHandle_t xHandle;
 } TaskType_t;
 

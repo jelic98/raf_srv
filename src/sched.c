@@ -33,11 +33,12 @@ static void vReportClose() {
 }
 
 static void vBatchLoad(BatchType_t* pxBatch) {
-	portCHAR path[MAX_PATH_LEN];
+	//portCHAR path[MAX_PATH_LEN];
 
-	printf(INPUT_FILE);
-	fflush(stdout);
-	scanf("%s", path);
+	//printf(INPUT_FILE);
+	//fflush(stdout);
+	//scanf("%s", path);
+	portCHAR path[] = "test/batch_8.txt";
 
 	FILE* fin = fopen(path, "r");
 
@@ -139,6 +140,7 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 		xTask.pxJob = &pxJobs[strtol(strtok(NULL, pcSep), NULL, 10)];
 		xTask.cState = STATE_READY;
 		xTask.xHandle = NULL;
+		xTask.cScheduled = 0;
 
 		portCHAR* pcPrecedence = strtok(NULL, pcSep);
 
@@ -153,7 +155,6 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 			}
 
 			xTask.pxPrecedence[xTask.xPrecedenceCount++] = xPrecedence;
-
 			pcPrecedence = strtok(NULL, pcSep);
 		}
 
@@ -190,6 +191,57 @@ static void vBatchSchedule(BatchType_t* pxBatch) {
 			}
 		}
 	}
+
+	printf("Schedule before precedence restriction:\n");
+
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		printf("%d. %s\n", i + 1, pxBatch->pxTasks[pxBatch->pxSchedule[i]].pcName);
+	}
+
+	fflush(stdout);
+
+	BaseType_t* pxSchedule = (BaseType_t*) malloc(pxBatch->xTaskCount * sizeof(BaseType_t));
+	BaseType_t xBatchScheduled;
+
+	k = 0;
+
+	do {
+		xBatchScheduled = 1;
+
+		for(i = 0; i < pxBatch->xTaskCount; i++) {
+			TaskType_t* xTask = &pxBatch->pxTasks[pxBatch->pxSchedule[i]];
+
+			if(xTask->cScheduled) {
+				continue;
+			}
+
+			xTask->cScheduled = 1;
+
+			for(j = 0; j < xTask->xPrecedenceCount; j++) {
+				TaskType_t xParent = pxBatch->pxTasks[xTask->pxPrecedence[j]];
+
+				xTask->cScheduled &= xParent.cScheduled;
+			}
+
+			if(xTask->cScheduled) {
+				pxSchedule[k++] = pxBatch->pxSchedule[i];
+			}
+
+			xBatchScheduled &= xTask->cScheduled;
+		}
+	}while(!xBatchScheduled);
+
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		pxBatch->pxSchedule[i] = pxSchedule[i];
+	}
+
+	printf("Schedule after precedence restriction:\n");
+
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		printf("%d. %s\n", i + 1, pxBatch->pxTasks[pxBatch->pxSchedule[i]].pcName);
+	}
+
+	fflush(stdout);
 }
 
 static void vBatchTest(BatchType_t* pxBatch) {
@@ -289,6 +341,7 @@ void vSchedStart() {
 	vBatchLoad(&xBatch);
 	vBatchSchedule(&xBatch);
 	vBatchTest(&xBatch);
+	return;
 
 	xTaskCreate(vSpringScheduler, (const portCHAR*) "", configMINIMAL_STACK_SIZE, &xBatch, PRIORITY_SCHED, NULL);
 	vTaskStartScheduler();
