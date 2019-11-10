@@ -15,27 +15,26 @@ BaseType_t xCompareEDF(TaskType_t* t1, TaskType_t* t2) {
 BaseType_t xCompareESTF(TaskType_t* t1, TaskType_t* t2) {
 	int i;
 
-	BaseType_t xMinDelay1 = INT_MAX;
-	BaseType_t xMinDelay2 = INT_MAX;
+	BaseType_t xMaxDelay1 = 0;
+	BaseType_t xMaxDelay2 = 0;
 
 	for(i = 0; i < t1->pxJob->xResourceCount; i++) {
 		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
 		
-		if(xDelay < xMinDelay1) {
-			xMinDelay1 = xDelay;
+		if(xDelay > xMaxDelay1) {
+			xMaxDelay1 = xDelay;
 		}
 	}
 
 	for(i = 0; i < t2->pxJob->xResourceCount; i++) {
-		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
+		BaseType_t xDelay = t2->pxJob->pxResources[i].xDelay;
 		
-		if(xDelay < xMinDelay2) {
-			xMinDelay2 = xDelay;
+		if(xDelay > xMaxDelay2) {
+			xMaxDelay2 = xDelay;
 		}
 	}
 
-
-	return xMinDelay1 - xMinDelay2;
+	return xMaxDelay1 - xMaxDelay2;
 }
 
 BaseType_t xCompareEDFSJF(TaskType_t* t1, TaskType_t* t2) {
@@ -45,26 +44,26 @@ BaseType_t xCompareEDFSJF(TaskType_t* t1, TaskType_t* t2) {
 BaseType_t xCompareEDFESTF(TaskType_t* t1, TaskType_t* t2) {
 	int i;
 
-	BaseType_t xMinDelay1 = INT_MAX;
-	BaseType_t xMinDelay2 = INT_MAX;
+	BaseType_t xMaxDelay1 = 0;
+	BaseType_t xMaxDelay2 = 0;
 
 	for(i = 0; i < t1->pxJob->xResourceCount; i++) {
 		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
-		
-		if(xDelay < xMinDelay1) {
-			xMinDelay1 = xDelay;
+
+		if(xDelay > xMaxDelay1) {
+			xMaxDelay1 = xDelay;
 		}
 	}
 
 	for(i = 0; i < t2->pxJob->xResourceCount; i++) {
-		BaseType_t xDelay = t1->pxJob->pxResources[i].xDelay;
-		
-		if(xDelay < xMinDelay2) {
-			xMinDelay2 = xDelay;
+		BaseType_t xDelay = t2->pxJob->pxResources[i].xDelay;
+
+		if(xDelay > xMaxDelay2) {
+			xMaxDelay2 = xDelay;
 		}
 	}
 
-	return (t1->xDeadline + HEURISTIC_WEIGHT * xMinDelay1) - (t2->xDeadline + HEURISTIC_WEIGHT * xMinDelay2);
+	return (t1->xDeadline + HEURISTIC_WEIGHT * xMaxDelay1) - (t2->xDeadline + HEURISTIC_WEIGHT * xMaxDelay2);
 }
 
 BaseType_t xCompareE(TaskType_t* t1, TaskType_t* t2) {

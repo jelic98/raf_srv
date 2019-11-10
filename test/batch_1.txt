@@ -1,0 +1,16 @@
+3
+Memorija,0
+Disk,0
+IO,0
+3
+PrintLetters
+PrintNumbers
+PrintSymbols
+1
+FCFS,0
+5
+Task1,30,10,100,0
+Task2,10,10,100,1
+Task3,40,10,100,2
+Task4,20,10,100,0
+Task5,50,10,100,1

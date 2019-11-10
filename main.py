@@ -246,7 +246,7 @@ class App(Frame):
                 break
 
     def action_select_heuristic_order(self, event):
-        current_heuristic.order = self.cmb_heuristic_order.get()
+        current_heuristic.order = int(self.cmb_heuristic_order.get())
         self.layout_refresh()
 
     def action_add_task(self):
@@ -316,8 +316,8 @@ class App(Frame):
                     fout.write("," + str(i))
             fout.write("\r\n")
         # Heuristics
-        heuristic_sorted = sorted(heuristics, key=lambda h: h.order)
-        heuristic_sorted = [h for h in heuristic_sorted if h > 0]
+        heuristics_sorted = sorted(heuristics, key=lambda h: h.order)
+        heuristics_sorted = [h for h in heuristics_sorted if h.order > 0]
         fout.write(str(len(heuristics_sorted)) + "\r\n")
         for heuristic in heuristics_sorted:
             if heuristic.order < 0:
@@ -370,9 +370,9 @@ app = App(root)
 tasks = []
 resources = []
 jobs = [
-    Job("Job 1"),
-    Job("Job 2"),
-    Job("Job 3")
+    Job("PrintLetters"),
+    Job("PrintNumbers"),
+    Job("PrintSymbols")
 ]
 heuristics = [
     Heuristic("FCFS"),

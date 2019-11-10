@@ -18,6 +18,7 @@
 #define PRIORITY_READY 1
 #define PRIORITY_RUN 4
 #define HEURISTIC_WEIGHT 0.5f
+#define JOB_PRINT_COUNT 10
 
 typedef struct ResourceType_t {
 	portCHAR pcName[MAX_NAME_LEN];
@@ -60,8 +61,9 @@ typedef struct BatchType_t {
 
 void vSchedStart();
 
-void vJobPrinter();
-void vJobFactorizer();
+void vJobPrintLetters(TaskType_t*);
+void vJobPrintNumbers(TaskType_t*);
+void vJobPrintSymbols(TaskType_t*);
 
 BaseType_t xCompareFCFS(TaskType_t*, TaskType_t*); // First Come First Served
 BaseType_t xCompareSJF(TaskType_t*, TaskType_t*); // Shortest Job First
