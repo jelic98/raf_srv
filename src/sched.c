@@ -38,7 +38,7 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 	//printf(INPUT_FILE);
 	//fflush(stdout);
 	//scanf("%s", path);
-	portCHAR path[] = "test/batch_8.txt";
+	portCHAR path[] = "test/batch_10.txt";
 
 	FILE* fin = fopen(path, "r");
 
@@ -167,30 +167,52 @@ static void vBatchLoad(BatchType_t* pxBatch) {
 	}
 }
 
+static BaseType_t xBatchCheck(BatchType_t* pxBatch) {
+	int i;
+
+	TickType_t xDelay = 0;
+
+	for(i = 0; i < pxBatch->xTaskCount; i++) {
+		TaskType_t xTask = pxBatch->pxTasks[pxBatch->pxSchedule[i]];
+
+		if(i && xDelay + xTask.xCompute > xTask.xDeadline) {
+			return 0;
+		}
+
+		xDelay += xTask.xCompute;
+	}
+
+	return 1;
+}
+
+static void vBatchTest(BatchType_t* pxBatch) {
+	if(!xBatchCheck(pxBatch)) {
+		printf(ERROR_SCHEDULE);
+		fflush(stdout);
+		exit(EXIT_FAILURE);
+	}
+}
+
 static void vBatchSchedule(BatchType_t* pxBatch) {
-	int i, j, k, cmp, p;
+	int i, j, p, k = 0;
 
 	for(i = 0; i < pxBatch->xTaskCount; i++) {
 		pxBatch->pxSchedule[i] = i;
 	}
 
-	for(i = 0; i < pxBatch->xTaskCount - 1; i++) {
-		for(j = 0; j < pxBatch->xTaskCount - i - 1; j++) {
-			k = 0;
-
-			do {
-				cmp = pxBatch->pxHeuristics[k++].xCompare(
-						&pxBatch->pxTasks[pxBatch->pxSchedule[j]],
-						&pxBatch->pxTasks[pxBatch->pxSchedule[j + 1]]);
-			}while(!cmp && k < pxBatch->xHeuristicCount);
-
-			if(cmp > 0) {
-				p = pxBatch->pxSchedule[j];
-				pxBatch->pxSchedule[j] = pxBatch->pxSchedule[j + 1];
-				pxBatch->pxSchedule[j + 1] = p;
+	do {
+		for(i = 0; i < pxBatch->xTaskCount - 1; i++) {
+			for(j = 0; j < pxBatch->xTaskCount - i - 1; j++) {
+				if(pxBatch->pxHeuristics[k].xCompare(
+					&pxBatch->pxTasks[pxBatch->pxSchedule[j]],
+					&pxBatch->pxTasks[pxBatch->pxSchedule[j + 1]]) > 0) {
+					p = pxBatch->pxSchedule[j];
+					pxBatch->pxSchedule[j] = pxBatch->pxSchedule[j + 1];
+					pxBatch->pxSchedule[j + 1] = p;
+				}
 			}
 		}
-	}
+	}while(!xBatchCheck(pxBatch) && ++k < pxBatch->xHeuristicCount);
 
 	printf("Schedule before precedence restriction:\n");
 
@@ -242,24 +264,6 @@ static void vBatchSchedule(BatchType_t* pxBatch) {
 	}
 
 	fflush(stdout);
-}
-
-static void vBatchTest(BatchType_t* pxBatch) {
-	int i;
-
-	TickType_t xDelay = 0;
-
-	for(i = 0; i < pxBatch->xTaskCount; i++) {
-		TaskType_t xTask = pxBatch->pxTasks[pxBatch->pxSchedule[i]];
-
-		if(i && xDelay + xTask.xCompute > xTask.xDeadline) {
-			printf(ERROR_SCHEDULE);
-			fflush(stdout);
-			exit(EXIT_FAILURE);
-		}
-
-		xDelay += xTask.xCompute;
-	}
 }
 
 static void vBatchClear(BatchType_t* pxBatch) {
