@@ -1,13 +1,15 @@
 ### Server (FreeRTOS Scheduler)
 
-* Dodati compute i period u tcb
 * RM algoritam
 * vTaskDelete na kraju izvrsavanja taska
 * Simulirati compute time zavisno od argumenata (neki koriste vTaskDelay a neki ne)
+
 * Interrupt handler za aperiodicne taskove
+
 * Konfiguracija sistema
 * Kreiranje taskova
 * Brisanje taskova
+
 * Batch posao
 * Provera rasporedivosti
 * Racunanje maksimalnog kapaciteta rasporedivog servera za skup periodicnih taaskova

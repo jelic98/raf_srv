@@ -9,6 +9,7 @@ typedef struct JobType_t {
 void vJobPrint(void*);
 
 JobType_t pxJobs[] = {
+	{"idle", &prvIdleTask},
 	{"print", &vJobPrint}
 };
 
