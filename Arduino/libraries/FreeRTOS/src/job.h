@@ -10,6 +10,7 @@ void vJobPrint(void*);
 
 JobType_t pxJobs[] = {
 	{"idle", &prvIdleTask},
+	{"server", &prvServerTask},
 	{"print", &vJobPrint}
 };
 

@@ -5,8 +5,8 @@ static StaticTask_t xTask;
 
 void setup() {
 	xTaskCreateStatic(
-		(const portCHAR*) "task1",
 		(const portCHAR*) "print",
+		(const portCHAR*) "task1",
 		50,
 		100,
 		xTaskStack,
