@@ -1,4 +1,4 @@
-#ifndef H_SERIAL_INCLUDE
+#ifndef H_UTIL_INCLUDE
 
 #define SERIAL_BAUD 9600
 #define MAX_BUFF_LEN 128
@@ -7,7 +7,7 @@ void vSerialBegin();
 void vSerialWrite(char*, ...);
 void vSerialRead(char*, ...);
  
-#ifdef H_SERIAL_IMPLEMENT
+#ifdef H_UTIL_IMPLEMENT
 
 void vSerialBegin() {
 	Serial.begin(SERIAL_BAUD);

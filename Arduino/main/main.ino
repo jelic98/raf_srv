@@ -1,17 +1,23 @@
 #include <Arduino_FreeRTOS.h>
 
-#define H_SERIAL_IMPLEMENT
-#include "serial.h"
+#define H_UTIL_IMPLEMENT
+#include "util.h"
 
 static StackType_t xTaskStack[configMINIMAL_STACK_SIZE];
 static StaticTask_t xTask;
 
-void vJobPrint(void* pvParameters) {
-  char* msg = (char*) pvParameters;
+void vJobPrintLetters(void* pvParameters) {
+  TaskHandle_t pxTask = (TaskHandle_t) pvParameters;
+  int s = xTaskGetTickCount();
 
-  vSerialWrite(msg);
-  
-	vTaskFinish(NULL);
+  for(;;) {    
+    vSerialWrite("%c\n", random('A', 'Z'));
+    
+    if(xTaskGetTickCount() < s + uxTaskGetCompute(pxTask)) {
+      vTaskFinish(NULL);
+      s = xTaskGetTickCount();
+    }
+  }
 }
 
 void setup() {
@@ -20,7 +26,7 @@ void setup() {
   vConsoleSet(vSerialWrite, vSerialRead);
   
 	xTaskCreatePeriodic(
-		vJobPrint,
+		vJobPrintLetters,
 		"task1",
 		50,
 		100,
