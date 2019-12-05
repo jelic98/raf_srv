@@ -443,13 +443,25 @@ is used in assert() statements. */
  * \ingroup Tasks
  */
 #if( configSUPPORT_STATIC_ALLOCATION == 1 )
-    TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
+	TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
                                     const char * const pcName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
                                     const configSTACK_DEPTH_TYPE ulStackDepth,
                                     void * const pvParameters,
                                     UBaseType_t uxPriority,
                                     StackType_t * const puxStackBuffer,
                                     StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
+
+    TaskHandle_t xTaskCreatePeriodic(
+			TaskFunction_t xJob,
+			const char * const pcName,
+			BaseType_t uxCompute,
+			BaseType_t uxPeriod,
+			void* pvParameters,
+			StackType_t * const puxStackBuffer,
+			StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
+
+
+
 #endif /* configSUPPORT_STATIC_ALLOCATION */
 
 /**
@@ -704,6 +716,9 @@ void vTaskAllocateMPURegions( TaskHandle_t xTask, const MemoryRegion_t * const p
  * \ingroup Tasks
  */
 void vTaskDelete( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
+void vTaskFinish( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
+
+void vConsoleSet(void (*vCW)(char*, ...), void (*vCR)(char*, ...));
 
 /*-----------------------------------------------------------
  * TASK CONTROL API

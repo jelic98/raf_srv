@@ -275,6 +275,7 @@ BaseType_t xReturn = pdFAIL;
     configASSERT( xReturn );
     return xReturn;
 }
+
 /*-----------------------------------------------------------*/
 
 #if( configSUPPORT_DYNAMIC_ALLOCATION == 1 )

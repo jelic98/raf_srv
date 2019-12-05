@@ -40,10 +40,6 @@ task.h is included from an application file. */
 #include "timers.h"
 #include "stack_macros.h"
 
-/* Helper includes. */
-#include "sched.h"
-#include "serial.h"
-
 /* Lint e9021, e961 and e750 are suppressed as a MISRA exception justified
 because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
 for the header files above, but not in this file, in order to generate the
@@ -327,6 +323,12 @@ typedef struct TaskControlBlock_t
         int iTaskErrno;
     #endif
 
+	BaseType_t uxCompute;
+	BaseType_t uxPeriod;
+	TickType_t uxStart;
+	BaseType_t uxFinished;
+	TaskFunction_t xJob;
+	void* pvParameters;
 } tskTCB;
 
 /* The old tskTCB name is maintained above then typedefed to the new TCB_t name
@@ -336,10 +338,22 @@ typedef tskTCB TCB_t;
 TCB_t* pxTasks[configMAX_TASK_COUNT];
 BaseType_t uxTaskCount = 0;
 BaseType_t xTaskCurrent = -1;
+BaseType_t xSchedulePossible = pdFALSE;
 BaseType_t uxSchedulePeriod = 1;
 BaseType_t uxServerCapacity = 0;
 BaseType_t uxServerPeriod = 0;
-TCB_t pxIdleTCB;
+TickType_t uxStart = 0;
+TCB_t* pxIdleTCB;
+
+BaseType_t xGCD(BaseType_t a, BaseType_t b){if(!a) return b;return xGCD(b%a,a);}
+
+void (*vConsoleWrite)(char*, ...);
+void (*vConsoleRead)(char*, ...);
+
+void vConsoleSet(void (*vCW)(char*, ...), void (*vCR)(char*, ...)) {
+	vConsoleWrite = vCW;
+	vConsoleRead = vCR;
+}
 
 /*lint -save -e956 A manual analysis and inspection has been used to determine
 which static variables must be declared volatile. */
@@ -381,7 +395,7 @@ PRIVILEGED_DATA static volatile TickType_t xTickCount               = ( TickType
 PRIVILEGED_DATA static volatile UBaseType_t uxTopReadyPriority      = tskIDLE_PRIORITY;
 PRIVILEGED_DATA static volatile BaseType_t xSchedulerRunning        = pdFALSE;
 PRIVILEGED_DATA static volatile UBaseType_t uxPendedTicks           = ( UBaseType_t ) 0U;
-PRIVILEGED_DATA static volatile BaseType_t xYieldPending            = pdFALSE;
+PRIVILEGED_DATA static volatile BaseType_t xYieldPending            = pdTRUE;
 PRIVILEGED_DATA static volatile BaseType_t xNumOfOverflows          = ( BaseType_t ) 0;
 PRIVILEGED_DATA static UBaseType_t uxTaskNumber                     = ( UBaseType_t ) 0U;
 PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime     = ( TickType_t ) 0U; /* Initialised to portMAX_DELAY before the scheduler starts. */
@@ -587,13 +601,13 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 
 #if( configSUPPORT_STATIC_ALLOCATION == 1 )
 
-    TaskHandle_t xTaskCreateStatic(
-			TaskFunction_t pxTaskCode,
-			const char * const pcName,
-			BaseType_t uxCompute,
-			BaseType_t uxPeriod,
-			StackType_t * const puxStackBuffer,
-			StaticTask_t * const pxTaskBuffer )
+   TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
+                                    const char * const pcName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+                                    const configSTACK_DEPTH_TYPE ulStackDepth,
+                                    void * const pvParameters,
+                                    UBaseType_t uxPriority,
+                                    StackType_t * const puxStackBuffer,
+                                    StaticTask_t * const pxTaskBuffer )
     {
     TCB_t *pxNewTCB;
     TaskHandle_t xReturn;
@@ -626,13 +640,73 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
                 task was created statically in case the task is later deleted. */
                 pxNewTCB->ucStaticallyAllocated = tskSTATICALLY_ALLOCATED_STACK_AND_TCB;
             }
-            #endif /* tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE */
+            #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 
             prvInitialiseNewTask( pxTaskCode, pcName, ulStackDepth, pvParameters, uxPriority, &xReturn, pxNewTCB, NULL );
             prvAddNewTaskToReadyList( pxNewTCB );
+        }
+        else
+        {
+            xReturn = NULL;
+        }
 
+        return xReturn;
+    } 
+
+	TaskHandle_t xTaskCreatePeriodic(
+			TaskFunction_t xJob,
+			const char * const pcName,
+			BaseType_t uxCompute,
+			BaseType_t uxPeriod,
+			void* pvParameters,
+			StackType_t * const puxStackBuffer,
+			StaticTask_t * const pxTaskBuffer ) {
+
+		TCB_t *pxNewTCB;
+    	TaskHandle_t xReturn;
+
+        configASSERT( puxStackBuffer != NULL );
+        configASSERT( pxTaskBuffer != NULL );
+
+        #if( configASSERT_DEFINED == 1 )
+        {
+            /* Sanity check that the size of the structure used to declare a
+            variable of type StaticTask_t equals the size of the real task
+            structure. */
+            volatile size_t xSize = sizeof( StaticTask_t );
+            configASSERT( xSize == sizeof( TCB_t ) );
+            ( void ) xSize; /* Prevent lint warning when configASSERT() is not used. */
+        }
+        #endif /* configASSERT_DEFINED */
+
+
+        if( ( pxTaskBuffer != NULL ) && ( puxStackBuffer != NULL ) )
+        {
+            /* The memory used for the task's TCB and stack are passed into this
+            function - use them. */
+            pxNewTCB = ( TCB_t * ) pxTaskBuffer; /*lint !e740 !e9087 Unusual cast is ok as the structures are designed to have the same alignment, and the size is checked by an assert. */
+            pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
+			pxNewTCB->uxCompute = uxCompute;
+			pxNewTCB->uxPeriod = uxPeriod;
+			pxNewTCB->uxStart = 0;
+			pxNewTCB->uxFinished = pdTRUE;
+			pxNewTCB->xJob = xJob;
+			pxNewTCB->pvParameters = pvParameters;
+
+            #if( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 ) /*lint !e731 !e9029 Macro has been consolidated for readability reasons. */
+            {
+                /* Tasks can be created statically or dynamically, so note this
+                task was created statically in case the task is later deleted. */
+                pxNewTCB->ucStaticallyAllocated = tskSTATICALLY_ALLOCATED_STACK_AND_TCB;
+            }
+            #endif /* tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE */
+
+            prvInitialiseNewTask( xJob, pcName, configMINIMAL_STACK_SIZE, pvParameters, tskIDLE_PRIORITY + 1, &xReturn, pxNewTCB, NULL );
+            prvAddNewTaskToReadyList( pxNewTCB );
+				
 			pxTasks[uxTaskCount++] = pxNewTCB;
-	
+			
+			int i;
 			float fUtilization = 0.0f;
 			float fLimit = uxTaskCount * (pow(2, 1 / uxTaskCount) - 1);
 
@@ -641,13 +715,12 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			}
 
 			if(fUtilization > fLimit) {
-				vSerialWrite("Schedule not possible\n");
-				pxCurrentTCB = pxIdleTCB;
+				vConsoleWrite("Schedule not possible");
 				xSchedulePossible = pdFALSE;
 			}
 
+			int j;
 			TCB_t* tmp;
-			int i, j;
 
 			for(i = 0; i < uxTaskCount - 1; i++) {
 				for(j = 0; j < uxTaskCount - i - 1; j++) {
@@ -658,11 +731,9 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 					}
 				}
 			}
-	
-			uxSchedulePeriod = pxTasks[0]->uxPeriod;
-		
-			for(i = 1; i < uxTaskCount; i++) {
-				uxSchedulePeriod = arr[i] * uxSchedulePeriod / (GCD(pxTasks[i]->uxPeriod, uxSchedulePeriod);
+			
+			for(uxSchedulePeriod = pxTasks[0]->uxPeriod, i = 1; i < uxTaskCount; i++) {
+				uxSchedulePeriod = pxTasks[i]->uxPeriod * uxSchedulePeriod / xGCD(pxTasks[i]->uxPeriod, uxSchedulePeriod);
 			}
         }else {
             xReturn = NULL;
@@ -1287,6 +1358,12 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 
 #endif /* INCLUDE_vTaskDelete */
 /*-----------------------------------------------------------*/
+
+    void vTaskFinish(TaskHandle_t xTaskToDelete) {
+    	TCB_t *pxTCB = prvGetTCBFromHandle(xTaskToDelete);
+		pxTCB->uxFinished = pdTRUE;
+		portYIELD_WITHIN_API();
+    }
 
 #if ( INCLUDE_vTaskDelayUntil == 1 )
 
@@ -2008,34 +2085,32 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 #endif /* ( ( INCLUDE_xTaskResumeFromISR == 1 ) && ( INCLUDE_vTaskSuspend == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-void vTaskStartScheduler( void )
-{
+void vTaskStartScheduler( void ) {
 BaseType_t xReturn;
-
-    vSerialBegin();
-
     /* Add the idle task at the lowest priority. */
     #if( configSUPPORT_STATIC_ALLOCATION == 1 )
     {
-        StaticTask_t *pxIdleTaskTCBBuffer = NULL;
+		StaticTask_t *pxIdleTaskTCBBuffer = NULL;
         StackType_t *pxIdleTaskStackBuffer = NULL;
         configSTACK_DEPTH_TYPE ulIdleTaskStackSize;
 
-        /* The Idle task is created using user provided RAM - obtain the
-        address of the RAM then create the idle task. */
         vApplicationGetIdleTaskMemory( &pxIdleTaskTCBBuffer, &pxIdleTaskStackBuffer, &ulIdleTaskStackSize );
-		
-		xIdleTaskHandle = xTaskCreateStatic(
-				"idle",
-				configIDLE_TASK_NAME,
-				0,
-				0,
-				pxIdleTaskStackBuffer,
-				pxIdleTaskTCBBuffer);
+
+        xIdleTaskHandle = xTaskCreateStatic(    prvIdleTask,
+                                                configIDLE_TASK_NAME,
+                                                ulIdleTaskStackSize,
+                                                ( void * ) NULL, /*lint !e961.  The cast is not redundant for all compilers. */
+                                                portPRIVILEGE_BIT, /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                                pxIdleTaskStackBuffer,
+                                                pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+
+		pxIdleTCB = (TCB_t*) pxIdleTaskTCBBuffer;
 
         if( xIdleTaskHandle != NULL )
         {
             xReturn = pdPASS;
+
+			pxCurrentTCB = xIdleTaskHandle;	
         }
         else
         {
@@ -2877,6 +2952,8 @@ BaseType_t xSwitchRequired = pdFALSE;
     }
     #endif /* configUSE_PREEMPTION */
 
+	xSwitchRequired = pdTRUE;
+
     return xSwitchRequired;
 }
 /*-----------------------------------------------------------*/
@@ -3040,12 +3117,27 @@ void vTaskSwitchContext( void )
             pxCurrentTCB->iTaskErrno = FreeRTOS_errno;
         }
         #endif
-	
-	if(1) {
-		pxCurrentTCB = pxTasks[++xTaskCurrent % uxTaskCount];
-	}
-	
-	traceTASK_SWITCHED_IN();
+
+		TickType_t xCurrentTick = xTaskGetTickCount();
+		
+		if(uxTaskCount > 0
+			&& pxCurrentTCB->uxFinished == pdTRUE
+			/*&& xCurrentTick > pxCurrentTCB->uxStart + pxCurrentTCB->uxCompute*/) {
+			vConsoleWrite("%d\n", 5);
+			pxCurrentTCB = pxTasks[xTaskCurrent = ++xTaskCurrent % uxTaskCount];
+			pxCurrentTCB->uxFinished = pdFALSE;
+			pxCurrentTCB->uxStart = xCurrentTick;
+
+			StackType_t* pxTopOfStack = &(pxCurrentTCB->pxStack[configMINIMAL_STACK_SIZE - (configSTACK_DEPTH_TYPE) 1]);
+			pxTopOfStack = (StackType_t *) (((portPOINTER_SIZE_TYPE) pxTopOfStack) & (~((portPOINTER_SIZE_TYPE) portBYTE_ALIGNMENT_MASK)));
+			pxCurrentTCB->pxTopOfStack = pxPortInitialiseStack(pxTopOfStack, pxCurrentTCB->xJob, pxCurrentTCB->pvParameters);
+
+			uxStart = uxStart ? uxStart : pxCurrentTCB->uxStart;
+		}else {
+			pxCurrentTCB = pxIdleTCB;
+		}
+
+		traceTASK_SWITCHED_IN();
 
         /* After the new task is switched in, update the global errno. */
         #if( configUSE_POSIX_ERRNO == 1 )
