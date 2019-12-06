@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter.ttk import *
+from tkinter import messagebox as mb
 import random
 import datetime as dt
 import matplotlib.pyplot as plt
@@ -53,7 +54,7 @@ class App(Frame):
         Frame.__init__(self, master)
         Style().theme_use("default")
         self.master = master
-        self.master.title("Server Configurator")
+        self.master.title("Scheduler Configurator")
 
     def layout_refresh(self):
         for widget in self.winfo_children():
@@ -78,35 +79,66 @@ class App(Frame):
  
         # Compute time
         self.lbl_time_compute = Label(self, text="Compute time (ticks)")
-        self.lbl_time_compute.grid(row=3, column=0, padx=10, pady=10)
+        self.lbl_time_compute.grid(row=2, column=0, padx=10, pady=10)
         self.ent_time_compute = Entry(self)
-        self.ent_time_compute.grid(row=3, column=1, padx=10, pady=10)
+        self.ent_time_compute.grid(row=2, column=1, padx=10, pady=10)
         self.cmb_job.bind("<<ComboboxSelected>>", self.action_select_job)
-
-        # Compute time
-        self.lbl_time_compute = Label(self, text="Compute time (ticks)")
-        self.lbl_time_compute.grid(row=3, column=0, padx=10, pady=10)
-        self.ent_time_compute = Entry(self)
-        self.ent_time_compute.grid(row=3, column=1, padx=10, pady=10)
-  
+ 
         # Period time
         self.lbl_time_period = Label(self, text="Period time (ticks)")
-        self.lbl_time_period.grid(row=4, column=0, padx=10, pady=10)
+        self.lbl_time_period.grid(row=3, column=0, padx=10, pady=10)
         self.ent_time_period = Entry(self)
-        self.ent_time_period.grid(row=4, column=1, padx=10, pady=10)
+        self.ent_time_period.grid(row=3, column=1, padx=10, pady=10)
+
+        # Server capacity time
+        self.lbl_time_server_capacity = Label(self, text="Server capacity time (ticks)")
+        self.lbl_time_server_capacity.grid(row=4, column=0, padx=10, pady=10)
+        self.ent_time_server_capacity = Entry(self)
+        self.ent_time_server_capacity.grid(row=4, column=1, padx=10, pady=10)
+        self.cmb_job.bind("<<ComboboxSelected>>", self.action_select_job)
+ 
+        # Server period time
+        self.lbl_time_server_period = Label(self, text="Server period time (ticks)")
+        self.lbl_time_server_period.grid(row=5, column=0, padx=10, pady=10)
+        self.ent_time_server_period = Entry(self)
+        self.ent_time_server_period.grid(row=5, column=1, padx=10, pady=10)
         
         # Add task
-        self.btn_add_task = Button(self, text="Add task", command=self.action_add_task)
-        self.btn_add_task.grid(row=9, column=0, columnspan=2, padx=10, pady=10)
+        self.btn_add_task = Button(self, text="Add task", command=self.action_add)
+        self.btn_add_task.grid(row=6, column=0, padx=10, pady=10)
 
-        # Save batch
-        self.btn_save = Button(self, text="Save batch", command=self.action_save)
-        self.btn_save.grid(row=16, column=0, padx=10, pady=10)
+        # Remove task
+        self.btn_remove_task = Button(self, text="Remove task", command=self.action_remove)
+        self.btn_remove_task.grid(row=6, column=1, padx=10, pady=10)
+
+        # Start task
+        self.btn_start_task = Button(self, text="Start task", command=self.action_start)
+        self.btn_start_task.grid(row=7, column=0, padx=10, pady=10)
+
+        # Stop task
+        self.btn_stop_task = Button(self, text="Stop task", command=self.action_stop)
+        self.btn_stop_task.grid(row=7, column=1, padx=10, pady=10)
+
+        # Save server
+        self.btn_save = Button(self, text="Save server", command=self.action_save)
+        self.btn_save.grid(row=8, column=0, padx=10, pady=10)
+
+        # Max util
+        self.btn_max_util = Button(self, text="Max util", command=self.action_max)
+        self.btn_max_util.grid(row=8, column=1, padx=10, pady=10)
+
+         # Upload batch
+        self.btn_upload = Button(self, text="Upload batch", command=self.action_upload)
+        self.btn_upload.grid(row=9, column=0, padx=10, pady=10)
 
         # Show plot
         self.btn_show = Button(self, text="Show plot", command=self.action_show)
-        self.btn_show.grid(row=16, column=1, padx=10, pady=10)
-        
+        self.btn_show.grid(row=9, column=1, padx=10, pady=10)
+       
+        self.txt_serial = Text(self)
+        self.txt_serial.configure(state="disabled")
+        self.txt_serial.grid(row=10, column=0, columnspan=2, padx=10, pady=10)
+
         self.pack(fill=BOTH, expand=1)
    
     def action_select_task(self, event):
@@ -115,24 +147,28 @@ class App(Frame):
             if task.name == self.cmb_task.get():
                 current_task = task
                 self.layout_refresh()
+                self.ent_time_compute.delete(0, END)
+                self.ent_time_compute.insert(0, str(current_task.time_compute))
+                self.ent_time_period.delete(0, END)
+                self.ent_time_period.insert(0, str(current_task.time_period))
                 break
 
     def action_select_job(self, event):
         global current_job
         for job in jobs:
-            if job.name == self.cmb_job.get():
+            if job == self.cmb_job.get():
                 current_job = job
                 self.layout_refresh()
                 break
 
-    def action_add_task(self):
+    def action_add(self):
         global current_task
         current_task.name = self.cmb_task.get()
         current_task.time_compute = self.ent_time_compute.get()
         current_task.time_period = self.ent_time_period.get()
         current_task.added = True
         for job in jobs:
-            if job.name == self.cmb_job.get():
+            if job == self.cmb_job.get():
                 current_task.job = job
                 break
         i = -1
@@ -147,19 +183,42 @@ class App(Frame):
             tasks.append(current_task)
         current_task = Task()
         self.layout_refresh()
+
+    def action_remove(self):
+        global current_task
+        current_task.name = self.cmb_task.get()
+        tasks.remove(current_task) 
+        current_task = Task()
+        self.layout_refresh()
+
+    def action_start(self):
+        print("Starting " + self.cmb_task.get())
+
+    def action_stop(self):
+        print("Stopping " + self.cmb_task.get())
+
+    def action_max(self):
+        mb.showinfo("Maximum utilization", "Capacity={}\nPeriod={}".format(0, 0))
    
-    def action_save(self):
-        fout = open(self.ent_path.get(), "w")
+    def action_upload(self):
+        fout = open("/Users/Lazar/Desktop/batch.txt", "w")
         fout.write(str(len(tasks)) + "\r\n")
         for task in tasks:
             fout.write("{name},{compute},{period},{job}".format(
                 name=task.name,
                 compute=task.time_compute,
                 period=task.time_period,
-                job=jobs.index(task.job)))
+                job=task.job))
             fout.write("\r\n")
         fout.close()
-    
+
+    def action_save(self):
+        fout = open("/Users/Lazar/Desktop/server.txt", "w")
+        fout.write("{capacity},{period}\r\n".format(
+            capacity=self.ent_time_server_capacity.get(),
+            period=self.ent_time_server_period.get()))
+        fout.close()
+ 
     def action_show(self):
         plot = Plot()
         plot.start()

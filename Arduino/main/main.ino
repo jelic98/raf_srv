@@ -6,17 +6,19 @@
 static StackType_t xTaskStack[configMINIMAL_STACK_SIZE];
 static StaticTask_t xTask;
 
-void vJobPrintLetters(void* pvParameters) {
-  TaskHandle_t pxTask = (TaskHandle_t) pvParameters;
-  int s = xTaskGetTickCount();
+void vJobPrintLetters(void* pvParameters) { 
+  static int a = 0;
 
-  for(;;) {    
-    vSerialWrite("%c\n", random('A', 'Z'));
+  TaskHandle_t pxTask = (TaskHandle_t) pvParameters;
+  int uxArrival = xTaskGetTickCount();
+
+for(;;) {
+  vSerialWrite("%c", 'A' + a++ % 10);
     
-    if(xTaskGetTickCount() < s + uxTaskGetCompute(pxTask)) {
-      vTaskFinish(NULL);
-      s = xTaskGetTickCount();
-    }
+  if(xTaskGetTickCount() < uxArrival + uxTaskGetCompute(pxTask)) {
+    vSerialWrite("\n");
+    vTaskFinish(NULL);
+  }
   }
 }
 
@@ -29,7 +31,7 @@ void setup() {
 		vJobPrintLetters,
 		"task1",
 		50,
-		100,
+		1000,
     "hello",
 		xTaskStack,
 		&xTask);

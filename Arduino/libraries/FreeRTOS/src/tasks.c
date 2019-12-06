@@ -329,7 +329,7 @@ typedef struct TaskControlBlock_t
 
 	BaseType_t uxCompute;
 	BaseType_t uxPeriod;
-	TickType_t uxStart;
+	TickType_t uxArrival;
 	BaseType_t uxFinished;
 	TaskFunction_t xJob;
 	void* pvParameters;
@@ -342,10 +342,11 @@ typedef tskTCB TCB_t;
 TCB_t* pxTasks[configMAX_TASK_COUNT];
 BaseType_t uxTaskCount = 0;
 BaseType_t xTaskCurrent = -1;
-BaseType_t xSchedulePossible = pdFALSE;
+BaseType_t xSchedulePossible = pdTRUE;
 BaseType_t uxSchedulePeriod = 1;
 BaseType_t uxServerCapacity = 0;
 BaseType_t uxServerPeriod = 0;
+TCB_t* pxServerTCB;
 TCB_t* pxIdleTCB;
 
 BaseType_t xGCD(BaseType_t a, BaseType_t b){if(!a) return b;return xGCD(b%a,a);}
@@ -356,6 +357,22 @@ void (*vConsoleRead)(char*, ...);
 void vConsoleSet(void (*vCW)(char*, ...), void (*vCR)(char*, ...)) {
 	vConsoleWrite = vCW;
 	vConsoleRead = vCR;
+}
+
+void vTaskGetMaxUtilization(BaseType_t* pxCapacity, BaseType_t* pxPeriod) {
+	int i;
+	float fP = 1.0f;
+	BaseType_t xMinPeriod;
+
+	for(i = 0; i < uxTaskCount; i++) {
+		if(!i || *pxPeriod < xMinPeriod) {
+			*pxPeriod = xMinPeriod - 1;
+		}
+
+		fP *= pxTasks[i]->uxCompute / pxTasks[i]->uxPeriod + 1;
+	}
+
+	*pxCapacity = floor(((2 - fP) * *pxPeriod) / fP);
 }
 
 /*lint -save -e956 A manual analysis and inspection has been used to determine
@@ -656,7 +673,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
         }
 
         return xReturn;
-    } 
+    }
 
 	TaskHandle_t xTaskCreatePeriodic(
 			TaskFunction_t xJob,
@@ -693,7 +710,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
             pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
 			pxNewTCB->uxCompute = uxCompute;
 			pxNewTCB->uxPeriod = uxPeriod;
-			pxNewTCB->uxStart = 0;
+			pxNewTCB->uxArrival = xTaskGetTickCount();
 			pxNewTCB->uxFinished = pdTRUE;
 			pxNewTCB->xJob = xJob;
 			pxNewTCB->pvParameters = pvParameters;
@@ -705,22 +722,27 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
                 pxNewTCB->ucStaticallyAllocated = tskSTATICALLY_ALLOCATED_STACK_AND_TCB;
             }
             #endif /* tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE */
+            
+			BaseType_t uxPriority = tskIDLE_PRIORITY + strcmp(pcName, configSERVER_TASK_NAME) ? 1 : 2;
 
-            prvInitialiseNewTask( xJob, pcName, configMINIMAL_STACK_SIZE, pvParameters, tskIDLE_PRIORITY + 1, &xReturn, pxNewTCB, NULL );
+            prvInitialiseNewTask( xJob, pcName, configMINIMAL_STACK_SIZE, pvParameters, uxPriority, &xReturn, pxNewTCB, NULL );
             prvAddNewTaskToReadyList( pxNewTCB );
 				
 			pxTasks[uxTaskCount++] = pxNewTCB;
 			
+			xSchedulePossible = pdTRUE;
+			
 			int i;
-			float fUtilization = 0.0f;
-			float fLimit = uxTaskCount * (pow(2, 1 / uxTaskCount) - 1);
+			float fUtilizationTasks = 0.0f;
+			float fUtilizationServer = uxServerCapacity / uxServerPeriod;
+			float fLimit = uxTaskCount * (pow(2 / fUtilizationServer + 1, 1 / uxTaskCount) - 1);
 
 			for(i = 0; i < uxTaskCount; i++) {
-				fUtilization += pxTasks[i]->uxCompute / pxTasks[i]->uxPeriod;
+				fUtilizationTasks += pxTasks[i]->uxCompute / pxTasks[i]->uxPeriod;
 			}
 
-			if(fUtilization > fLimit) {
-				vConsoleWrite("Schedule not possible\n");
+			if(fUtilizationTasks > fLimit) {
+				vConsoleWrite("Schedule not possible");
 				xSchedulePossible = pdFALSE;
 			}
 
@@ -2127,6 +2149,9 @@ BaseType_t xReturn;
             xReturn = pdFAIL;
         }
 		
+		// TODO Create server task
+		/*
+		
 		StaticTask_t *pxServerTaskTCBBuffer = NULL;
         StackType_t *pxServerTaskStackBuffer = NULL;
         configSTACK_DEPTH_TYPE ulServerTaskStackSize;
@@ -2140,6 +2165,9 @@ BaseType_t xReturn;
                                                 NULL,
                                                 pxIdleTaskStackBuffer,
                                                 pxIdleTaskTCBBuffer);
+		
+		pxServerTCB = (TCB_t*) pxServerTaskTCBBuffer;
+		*/
     }
     #else
     {
@@ -3142,22 +3170,17 @@ void vTaskSwitchContext( void )
         }
         #endif
 
-		// Check if:
-		// 1. Periodic tasks exist
-		// 2. Schedule is possible
-		// 3. Current task is periodic
-		if(uxTaskCount > 0 && xSchedulePossible == pdTRUE && pxCurrentTCB->uxPeriod > 0) {
-			if(pxCurrentTCB->uxFinished == pdTRUE) {
+		if(uxTaskCount > 0 && xSchedulePossible == pdTRUE) {
+			if(1/*pxCurrentTCB->uxFinished == pdTRUE*/) {
 				TickType_t xCurrentTick = xTaskGetTickCount();
 				TCB_t* pxNewTCB;
 				int i;
 			
-				// Reschedule all periodic tasks
 				for(i = 0; i < uxTaskCount; i++){
 					pxNewTCB = pxTasks[i];
 				
-					if(xCurrentTick > pxNewTCB->uxStart) { 
-           				pxNewTCB->uxStart = pxNewTCB->uxStart + pxNewTCB->uxPeriod;
+					if(xCurrentTick > pxNewTCB->uxArrival) { 
+           				pxNewTCB->uxArrival = pxNewTCB->uxArrival + pxNewTCB->uxPeriod;
 						pxNewTCB->uxFinished = pdTRUE;
 
 						StackType_t* pxTopOfStack = &(pxCurrentTCB->pxStack[configMINIMAL_STACK_SIZE - (configSTACK_DEPTH_TYPE) 1]);
@@ -3166,9 +3189,6 @@ void vTaskSwitchContext( void )
        				}
 				}
 
-				vConsoleWrite("%d\n", 5);
-
-				// Start next periodic task
 				pxCurrentTCB = pxTasks[xTaskCurrent = ++xTaskCurrent % uxTaskCount];
 				pxCurrentTCB->uxFinished = pdFALSE;
 			}	
@@ -3500,6 +3520,8 @@ void vTaskMissedYield( void )
 #endif /* configUSE_TRACE_FACILITY */
 
 static portTASK_FUNCTION( prvServerTask, pvParameters ) {
+	pxServerTCB->uxCompute = pxServerTCB->uxArrival - xTaskGetTickCount();
+
     for(;;) {
     
 	}

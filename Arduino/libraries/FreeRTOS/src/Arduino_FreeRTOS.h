@@ -1132,6 +1132,13 @@ typedef struct xSTATIC_TCB
     #if ( configUSE_POSIX_ERRNO == 1 )
         int             iDummy22;
     #endif
+
+	BaseType_t uxCompute;
+	BaseType_t uxPeriod;
+	TickType_t uxArrival;
+	BaseType_t uxFinished;
+	TaskFunction_t xJob;
+	void* pvParameters;
 } StaticTask_t;
 
 /*
