@@ -1,10 +1,31 @@
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import messagebox as mb
+from threading import Thread
+import time
 import random
 import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
+
+class ConsoleAppender(Thread):
+    def __init__(self, console):
+        Thread.__init__(self)
+        self.console = console
+        
+    def run(self):
+        fin = open("console.csv", "r")
+        
+        while 1:
+            end = fin.tell()
+            line = fin.readline()
+            if not line:
+                time.sleep(1)
+                fin.seek(end)
+            else:
+                self.console.insert(END, line)
+                
+        fin.close()
 
 class Plot:
     def __init__(self):
@@ -14,17 +35,27 @@ class Plot:
         self.ys = []
 
     def update(self, i):
-        self.xs.append(i)
-        self.ys.append(round(random.random(), 2))
+        fin = open("graph.csv", "r")
+        coords = fin.readline().split(",")
+        
+        print(str(coords))
+        
+        if(len(coords) == 2):
+            self.xs.append(coords[0])
+            self.ys.append(coords[1])
 
-        self.xs = self.xs[-10:]
-        self.ys = self.ys[-10:]
+            print("Append " + str(coords[0]) + " " + str(coords[1]))
 
-        self.ax.clear()
-        self.ax.plot(self.xs, self.ys)
+            self.xs = self.xs[-10:]
+            self.ys = self.ys[-10:]
 
-        plt.title("FreeRTOS Sporadic Server - RM Scheduling")
-        plt.ylabel("Capacity")
+            self.ax.clear()
+            self.ax.plot(self.xs, self.ys)
+
+            plt.title("FreeRTOS Sporadic Server - RM Scheduling")
+            plt.ylabel("Capacity")
+        
+        fin.close()
 
     def start(self):
         anim = ani.FuncAnimation(self.fig, self.update, interval=1000)
@@ -111,14 +142,6 @@ class App(Frame):
         self.btn_remove_task = Button(self, text="Remove task", command=self.action_remove)
         self.btn_remove_task.grid(row=6, column=1, padx=10, pady=10)
 
-        # Start task
-        self.btn_start_task = Button(self, text="Start task", command=self.action_start)
-        self.btn_start_task.grid(row=7, column=0, padx=10, pady=10)
-
-        # Stop task
-        self.btn_stop_task = Button(self, text="Stop task", command=self.action_stop)
-        self.btn_stop_task.grid(row=7, column=1, padx=10, pady=10)
-
         # Save server
         self.btn_save = Button(self, text="Save server", command=self.action_save)
         self.btn_save.grid(row=8, column=0, padx=10, pady=10)
@@ -138,9 +161,10 @@ class App(Frame):
         self.txt_serial = Text(self)
         self.txt_serial.configure(state="disabled")
         self.txt_serial.grid(row=10, column=0, columnspan=2, padx=10, pady=10)
+        ConsoleAppender(self.txt_serial).start()
 
         self.pack(fill=BOTH, expand=1)
-   
+
     def action_select_task(self, event):
         global current_task
         for task in tasks:
@@ -190,12 +214,6 @@ class App(Frame):
         tasks.remove(current_task) 
         current_task = Task()
         self.layout_refresh()
-
-    def action_start(self):
-        print("Starting " + self.cmb_task.get())
-
-    def action_stop(self):
-        print("Stopping " + self.cmb_task.get())
 
     def action_max(self):
         mb.showinfo("Maximum utilization", "Capacity={}\nPeriod={}".format(0, 0))

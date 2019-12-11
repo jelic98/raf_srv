@@ -18,4 +18,4 @@
 * Zaustavanje taska
 * Prikazivanje grafika stanja sistema kroz vreme
 
-- Serial interrupt (periodicni task?)
+- Kombinovnanje dva batcha

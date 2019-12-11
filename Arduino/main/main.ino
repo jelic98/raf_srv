@@ -6,37 +6,46 @@
 static StackType_t xTaskStack[configMINIMAL_STACK_SIZE];
 static StaticTask_t xTask;
 
-void vJobPrintLetters(void* pvParameters) { 
-  static int a = 0;
-
-  TaskHandle_t pxTask = (TaskHandle_t) pvParameters;
-  int uxArrival = xTaskGetTickCount();
-
-for(;;) {
-  vSerialWrite("%c", 'A' + a++ % 10);
-    
-  if(xTaskGetTickCount() < uxArrival + uxTaskGetCompute(pxTask)) {
-    vSerialWrite("\n");
-    vTaskFinish(NULL);
-  }
-  }
+void vJobPrinter(void* pvParameters) {
+  vSerialWrite("%s", (char*) pvParameters);
+  vTaskFinish(NULL);
 }
 
 void setup() {
-  Serial.begin(9600);
-  
-  vConsoleSet(vSerialWrite, vSerialRead);
-  
-	xTaskCreatePeriodic(
-		vJobPrintLetters,
-		"task1",
-		50,
-		1000,
-    "hello",
-		xTaskStack,
-		&xTask);
+	vSerialBegin();
+	
+	vConsoleSet(vSerialWrite, vSerialRead, iSerialAvailable);
+
+  Serial.println("S");
+
+		xTaskCreatePeriodic(
+			vJobPrinter,
+			"task1",
+			3,
+			20,
+	    "A",
+			xTaskStack,
+			&xTask);
+
+      xTaskCreatePeriodic(
+      vJobPrinter,
+      "task2",
+      2,
+      10,
+      "B",
+      xTaskStack,
+      &xTask);
 }
 
 void loop() {
-  // . . .
+//  Serial.print("E");
+//  Serial.print("hello there");
+//	Serial.print("G");
+//	Serial.print(",");
+//	Serial.print(random(1, 20));
+//	Serial.print(",");
+//	Serial.println(random(1, 20));
+//	delay(1000);
+
+	// . . .
 }
