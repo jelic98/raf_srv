@@ -5,29 +5,23 @@
 
 void setup() {
 	vSerialBegin();
-//	vConsoleSet(vSerialWrite, vSerialRead, iSerialAvailable);
-//
-//		xTaskCreatePeriodic(
-//			"Printer",
-//			3,
-//			20,
-//	    "A");
-//
-//      xTaskCreatePeriodic(
-//      "Printer",
-//      2,
-//      10,
-//      "B");
+	vConsoleSet(vSerialWrite, vSerialRead, iSerialAvailable);
+
+		xTaskCreatePeriodic(
+      "task1",
+			"Printer",
+			3,
+			20,
+	    "A\n");
+
+      xTaskCreatePeriodic(
+      "task2",
+      "Console",
+      2,
+      10,
+      "B\n");
 }
 
 void loop() {
-//	Serial.print("G");
-  Serial.print("C");
-	Serial.print(",");
-	Serial.print(random(1, 20));
-	Serial.print(",");
-	Serial.println(random(1, 20));
-	delay(1000);
-
 	// . . .
 }
