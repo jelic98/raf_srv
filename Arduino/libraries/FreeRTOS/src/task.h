@@ -452,13 +452,10 @@ is used in assert() statements. */
                                     StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
 
     TaskHandle_t xTaskCreatePeriodic(
-			TaskFunction_t xJob,
-			const char * const pcName,
+			const char * const pcJob,
 			BaseType_t uxCompute,
 			BaseType_t uxPeriod,
-			void* pvParameters,
-			StackType_t * const puxStackBuffer,
-			StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
+			void* pvParameters ) PRIVILEGED_FUNCTION;
 
 
 

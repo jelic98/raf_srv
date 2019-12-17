@@ -1,12 +1,12 @@
-from tkinter import *
-from tkinter.ttk import *
-from tkinter import messagebox as mb
-from threading import Thread
 import time
 import random
 import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
+from tkinter import *
+from tkinter.ttk import *
+from tkinter import messagebox as mb
+from threading import Thread
 
 class ConsoleAppender(Thread):
     def __init__(self, console):
@@ -14,8 +14,11 @@ class ConsoleAppender(Thread):
         self.console = console
         
     def run(self):
-        fin = open("console.csv", "r")
-        
+        fin = open("console.csv", "w+")
+        fin.close()
+
+        fin = open("console.csv", "r+")
+
         while 1:
             end = fin.tell()
             line = fin.readline()
@@ -35,27 +38,35 @@ class Plot:
         self.ys = []
 
     def update(self, i):
-        fin = open("graph.csv", "r")
-        coords = fin.readline().split(",")
+        fin = open("console.csv", "w+")
+        fin.close()
         
-        print(str(coords))
+        try:
+            fin = open("graph.csv", "r+")
+            line = fin.readline()
+
+            self.xs.clear()
+            self.ys.clear()
+
+            while line:
+                coords = line.replace("\n", "").split(",")
         
-        if(len(coords) == 2):
-            self.xs.append(coords[0])
-            self.ys.append(coords[1])
+                if(len(coords) == 2):
+                    self.xs.append(coords[0])
+                    self.ys.append(coords[1])
 
-            print("Append " + str(coords[0]) + " " + str(coords[1]))
+                    self.xs = self.xs[-10:]
+                    self.ys = self.ys[-10:]
 
-            self.xs = self.xs[-10:]
-            self.ys = self.ys[-10:]
+                line = fin.readline()
+            
+            plt.title("FreeRTOS Sporadic Server - RM Scheduling")
+            plt.ylabel("Capacity")
 
             self.ax.clear()
             self.ax.plot(self.xs, self.ys)
-
-            plt.title("FreeRTOS Sporadic Server - RM Scheduling")
-            plt.ylabel("Capacity")
-        
-        fin.close()
+        finally:
+                fin.close()
 
     def start(self):
         anim = ani.FuncAnimation(self.fig, self.update, interval=1000)
@@ -89,7 +100,7 @@ class App(Frame):
 
     def layout_refresh(self):
         for widget in self.winfo_children():
-    	    widget.destroy()
+            widget.destroy()
 
         # Task
         self.lbl_task = Label(self, text="Task")
@@ -159,7 +170,6 @@ class App(Frame):
         self.btn_show.grid(row=9, column=1, padx=10, pady=10)
        
         self.txt_serial = Text(self)
-        self.txt_serial.configure(state="disabled")
         self.txt_serial.grid(row=10, column=0, columnspan=2, padx=10, pady=10)
         ConsoleAppender(self.txt_serial).start()
 

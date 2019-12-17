@@ -112,10 +112,6 @@ configIDLE_TASK_NAME in FreeRTOSConfig.h. */
     #define configIDLE_TASK_NAME "IDLE"
 #endif
 
-#ifndef configSERVER_TASK_NAME
-    #define configSERVER_TASK_NAME "SERVER"
-#endif
-
 #ifndef configCONSOLE_TASK_NAME
     #define configCONSOLE_TASK_NAME "CONSOLE"
 #endif
@@ -348,8 +344,8 @@ below to enable the use of older kernel aware debuggers. */
 typedef tskTCB TCB_t;
 
 TCB_t* pxTasks[configMAX_TASK_COUNT];
-StackType_t xTaskStack[configMAX_TASK_COUNT][configMINIMAL_STACK_SIZE];
-StaticTask_t xTask[configMAX_TASK_COUNT];
+StackType_t puxStackBuffers[configMAX_TASK_COUNT][configMINIMAL_STACK_SIZE];
+StaticTask_t pxTaskBuffers[configMAX_TASK_COUNT];
 
 BaseType_t uxTaskCount = 0;
 BaseType_t xTaskCurrent = -1;
@@ -364,7 +360,6 @@ BaseType_t uxConsoleCompute = 0;
 BaseType_t uxConsolePeriod = 0;
 
 TCB_t* pxIdleTCB;
-TCB_t* pxServerTCB;
 TCB_t* pxConsoleTCB;
 
 char pcInputBuff[configCONSOLE_BUFF_LEN];
@@ -397,6 +392,11 @@ void vTaskGetMaxUtilization(BaseType_t* pxCapacity, BaseType_t* pxPeriod) {
 	}
 
 	*pxCapacity = floor(((2 - fP) * *pxPeriod) / fP);
+}
+
+void vJobPrinter(void* pvParameters) {
+	vConsoleWrite("%s", (char*) pvParameters);
+	vTaskFinish(NULL);
 }
 
 /*lint -save -e956 A manual analysis and inspection has been used to determine
@@ -439,12 +439,11 @@ PRIVILEGED_DATA static volatile TickType_t xTickCount               = ( TickType
 PRIVILEGED_DATA static volatile UBaseType_t uxTopReadyPriority      = tskIDLE_PRIORITY;
 PRIVILEGED_DATA static volatile BaseType_t xSchedulerRunning        = pdFALSE;
 PRIVILEGED_DATA static volatile UBaseType_t uxPendedTicks           = ( UBaseType_t ) 0U;
-PRIVILEGED_DATA static volatile BaseType_t xYieldPending            = pdTRUE;
+PRIVILEGED_DATA static volatile BaseType_t xYieldPending            = pdFALSE;
 PRIVILEGED_DATA static volatile BaseType_t xNumOfOverflows          = ( BaseType_t ) 0;
 PRIVILEGED_DATA static UBaseType_t uxTaskNumber                     = ( UBaseType_t ) 0U;
 PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime     = ( TickType_t ) 0U; /* Initialised to portMAX_DELAY before the scheduler starts. */
 PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandle                 = NULL;            /*< Holds the handle of the idle task.  The idle task is created automatically when the scheduler is started. */
-PRIVILEGED_DATA static TaskHandle_t xServerTaskHandle = NULL;
 PRIVILEGED_DATA static TaskHandle_t xConsoleTaskHandle = NULL;
 
 /* Context switches are held pending while the scheduler is suspended.  Also,
@@ -520,7 +519,6 @@ static void prvInitialiseTaskLists( void ) PRIVILEGED_FUNCTION;
  *
  */
 static portTASK_FUNCTION_PROTO( prvIdleTask, pvParameters );
-static portTASK_FUNCTION_PROTO( prvServerTask, pvParameters );
 static portTASK_FUNCTION_PROTO( prvConsoleTask, pvParameters );
 
 /*
@@ -702,16 +700,15 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
     }
 
 	TaskHandle_t xTaskCreatePeriodic(
-			TaskFunction_t xJob,
-			const char * const pcName,
+			const char * const pcJob,
 			BaseType_t uxCompute,
 			BaseType_t uxPeriod,
-			void* pvParameters,
-			StackType_t * const puxStackBuffer,
-			StaticTask_t * const pxTaskBuffer ) {
-
+			void* pvParameters) {
 		TCB_t *pxNewTCB;
     	TaskHandle_t xReturn;
+
+		StackType_t * const puxStackBuffer = &puxStackBuffers[uxTaskCount];
+		StaticTask_t * const pxTaskBuffer = &pxTaskBuffers[uxTaskCount];
 
         configASSERT( puxStackBuffer != NULL );
         configASSERT( pxTaskBuffer != NULL );
@@ -726,7 +723,14 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
             ( void ) xSize; /* Prevent lint warning when configASSERT() is not used. */
         }
         #endif /* configASSERT_DEFINED */
+		
+		TaskFunction_t xJob;
 
+		if(!strcmp(pcJob, "Printer")) {
+			xJob = vJobPrinter;
+		}else {
+			xJob = prvIdleTask;
+		}
 
         if( ( pxTaskBuffer != NULL ) && ( puxStackBuffer != NULL ) )
         {
@@ -749,7 +753,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
             }
             #endif /* tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE */
 
-            prvInitialiseNewTask( xJob, pcName, configMINIMAL_STACK_SIZE, pvParameters, tskIDLE_PRIORITY + 1, &xReturn, pxNewTCB, NULL );
+            prvInitialiseNewTask( xJob, NULL, configMINIMAL_STACK_SIZE, pvParameters, tskIDLE_PRIORITY + 1, &xReturn, pxNewTCB, NULL );
             prvAddNewTaskToReadyList( pxNewTCB );
 				
 			pxTasks[uxTaskCount++] = pxNewTCB;
@@ -2162,7 +2166,20 @@ BaseType_t xReturn;
 
 		pxIdleTCB = (TCB_t*) pxIdleTaskTCBBuffer;
 
-        if( xIdleTaskHandle != NULL )
+		StaticTask_t *pxConsoleTaskTCBBuffer = NULL;
+        StackType_t *pxConsoleTaskStackBuffer = NULL;
+        configSTACK_DEPTH_TYPE ulConsoleTaskStackSize;
+
+        vApplicationGetIdleTaskMemory(&pxConsoleTaskTCBBuffer, &pxConsoleTaskStackBuffer, &ulConsoleTaskStackSize);
+        
+		xConsoleTaskHandle = xTaskCreatePeriodic(prvConsoleTask,
+												uxConsoleCompute,
+												uxConsolePeriod,
+                                                NULL);
+		
+		pxConsoleTCB = (TCB_t*) pxConsoleTaskTCBBuffer;
+
+		if( xIdleTaskHandle != NULL )
         {
             xReturn = pdPASS;
 
@@ -2172,38 +2189,6 @@ BaseType_t xReturn;
         {
             xReturn = pdFAIL;
         }
-		
-		StaticTask_t *pxServerTaskTCBBuffer = NULL;
-        StackType_t *pxServerTaskStackBuffer = NULL;
-        configSTACK_DEPTH_TYPE ulServerTaskStackSize;
-
-        vApplicationGetIdleTaskMemory(&pxServerTaskTCBBuffer, &pxServerTaskStackBuffer, &ulServerTaskStackSize);
-        
-		xServerTaskHandle = xTaskCreatePeriodic(prvServerTask,
-                                                configSERVER_TASK_NAME,
-												uxServerCapacity,
-												uxServerPeriod,
-                                                NULL,
-                                                pxIdleTaskStackBuffer,
-                                                pxIdleTaskTCBBuffer);
-		
-		pxServerTCB = (TCB_t*) pxServerTaskTCBBuffer;
-
-		StaticTask_t *pxConsoleTaskTCBBuffer = NULL;
-        StackType_t *pxConsoleTaskStackBuffer = NULL;
-        configSTACK_DEPTH_TYPE ulConsoleTaskStackSize;
-
-        vApplicationGetIdleTaskMemory(&pxConsoleTaskTCBBuffer, &pxConsoleTaskStackBuffer, &ulConsoleTaskStackSize);
-        
-		xConsoleTaskHandle = xTaskCreatePeriodic(prvConsoleTask,
-                                                configCONSOLE_TASK_NAME,
-												uxConsoleCompute,
-												uxConsolePeriod,
-                                                NULL,
-                                                pxIdleTaskStackBuffer,
-                                                pxIdleTaskTCBBuffer);
-		
-		pxConsoleTCB = (TCB_t*) pxConsoleTaskTCBBuffer;
     }
     #else
     {
@@ -3208,7 +3193,7 @@ void vTaskSwitchContext( void )
 		
 		pxCurrentTCB = pxIdleTCB;
 
-		if(uxTaskCount > 0 && xSchedulePossible == pdTRUE) {
+		if(uxTaskCount > 2 && xSchedulePossible == pdTRUE) {
 			/*
 			if(pxCurrentTCB->uxFinished == pdTRUE) {
 				TickType_t xCurrentTick = xTaskGetTickCount();
@@ -3234,7 +3219,6 @@ void vTaskSwitchContext( void )
 				pxCurrentTCB->uxFinished = pdFALSE;
 			}
 			*/
-
 				pxCurrentTCB = pxTasks[xTaskCurrent = ++xTaskCurrent % uxTaskCount];
 				pxCurrentTCB->uxFinished = pdFALSE;
 
@@ -3569,11 +3553,19 @@ void vTaskMissedYield( void )
 
 #endif /* configUSE_TRACE_FACILITY */
 
-static portTASK_FUNCTION( prvServerTask, pvParameters ) {
-	pxServerTCB->uxCompute = pxServerTCB->uxArrival - xTaskGetTickCount();
+static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
+	pxConsoleTCB->uxCompute = pxConsoleTCB->uxArrival - xTaskGetTickCount();
 
     for(;;) {
-    	if(uxInputReady == pdTRUE) {
+    	if(iConsoleAvailable()) {
+			vConsoleRead("%c", pcInputPtr);
+
+			if(pcInputPtr++ == '\n') {
+				uxInputReady = pdTRUE;
+			}
+		}
+
+		if(uxInputReady == pdTRUE) {
 			char* pcSep = ",";
 			char* pcCmd = strtok(pcInputBuff, pcSep);
 			
@@ -3589,17 +3581,16 @@ static portTASK_FUNCTION( prvServerTask, pvParameters ) {
 				TickType_t xCompute = atoi(pcCompute);
 				TickType_t xPeriod = atoi(pcPeriod);
 
-				xTaskCreatePeriodic(i
-					pxJob,
-					pcName,
+				xTaskCreatePeriodic(
+					pcJob,
 					xCompute,
 					xPeriod,
-					NULL,
-					// TODO GLOBAL STACK AND TASK
+					NULL
 				);
 			}else if(!strcmp(pcCmd, "TAS")) {
 				// TaskAddSporadic
 				// TAP,name,compute,job
+				// TODO Create xTaskCreateSporadic function that adds task to queue
 			}else if(!strcmp(pcCmd, "TR")) {
 				// TaskRemove
 				// TR,name
@@ -3608,10 +3599,10 @@ static portTASK_FUNCTION( prvServerTask, pvParameters ) {
 				
 				int i;
 
-				for(i = 0; i < xTaskCount; i++) {
+				for(i = 0; i < uxTaskCount; i++) {
 					TCB_t* pxTCB = pxTasks[i];
 
-					if(!strcmp(pxTCB->pcName, pcName)) {
+					if(!strcmp(pxTCB->pcTaskName, pcName)) {
 						vTaskDelete(pxTCB);
 						break;
 					}
@@ -3620,20 +3611,6 @@ static portTASK_FUNCTION( prvServerTask, pvParameters ) {
 
 			pcInputPtr = pcInputBuff;
 			uxInputReady = pdFALSE;
-		}
-	}
-}
-
-static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
-	pxConsoleTCB->uxCompute = pxConsoleTCB->uxArrival - xTaskGetTickCount();
-
-    for(;;) {
-    	if(iConsoleAvailable()) {
-			vConsoleRead("%c", pcInputPtr);
-
-			if(pcInputPtr++ == '\n') {
-				uxInputReady = pdTRUE;
-			}
 		}
 	}
 }
