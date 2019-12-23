@@ -6,16 +6,16 @@
 void setup() {
 	vSerialBegin();
 	vConsoleSet(vSerialWrite, vSerialRead, iSerialAvailable);
-
+ 
 	xTaskAddPeriodic(
-    "task1",
+    "t1",
 	  "Printer",
 		10,
 		50,
 	  "A");
 
   xTaskAddPeriodic(
-    "task2",
+    "t2",
     "Printer",
     2,
     100,
