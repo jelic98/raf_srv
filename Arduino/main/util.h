@@ -21,6 +21,7 @@ void vSerialWrite(char* format, ...) {
 	char out[MAX_BUFF_LEN];
 	vsprintf(out, format, args);
 	Serial.write(out);
+  Serial.flush();
 
 	va_end(args);
 }

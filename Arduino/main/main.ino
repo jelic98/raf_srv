@@ -7,19 +7,19 @@ void setup() {
 	vSerialBegin();
 	vConsoleSet(vSerialWrite, vSerialRead, iSerialAvailable);
 
-		xTaskCreatePeriodic(
-      "task1",
-			"Printer",
-			3,
-			20,
-	    "A\n");
+	xTaskAddPeriodic(
+    "task1",
+	  "Printer",
+		10,
+		50,
+	  "A");
 
-      xTaskCreatePeriodic(
-      "task2",
-      "Console",
-      2,
-      10,
-      "B\n");
+  xTaskAddPeriodic(
+    "task2",
+    "Printer",
+    2,
+    100,
+    "B");
 }
 
 void loop() {

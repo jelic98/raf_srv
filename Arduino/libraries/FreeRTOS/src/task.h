@@ -451,15 +451,22 @@ is used in assert() statements. */
                                     StackType_t * const puxStackBuffer,
                                     StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
 
-    TaskHandle_t xTaskCreatePeriodic(
+    TaskHandle_t xTaskAddPeriodic(
 			const char * const pcName,
 			const char * const pcJob,
 			BaseType_t uxCompute,
 			BaseType_t uxPeriod,
 			void* pvParameters ) PRIVILEGED_FUNCTION;
 
-    TaskHandle_t xTaskCreateSporadic(
+    TaskHandle_t xTaskCreatePeriodic(
 			const char * const pcName,
+			const char * const pcJob,
+			BaseType_t uxCompute,
+			BaseType_t uxPeriod,
+			void* pvParameters,
+			BaseType_t uxPriority ) PRIVILEGED_FUNCTION;
+
+    TaskHandle_t xTaskCreateSporadic(
 			const char * const pcJob,
 			BaseType_t uxCompute,
 			void* pvParameters ) PRIVILEGED_FUNCTION;

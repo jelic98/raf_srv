@@ -168,26 +168,32 @@ class App(Frame):
         self.ent_time_period = Entry(self)
         self.ent_time_period.grid(row=3, column=1, padx=10, pady=10)
 
+        # Parameters
+        self.lbl_parameters = Label(self, text="Parameters")
+        self.lbl_parameters.grid(row=4, column=0, padx=10, pady=10)
+        self.ent_parameters = Entry(self)
+        self.ent_parameters.grid(row=4, column=1, padx=10, pady=10)
+
         # Server capacity time
         self.lbl_time_server_capacity = Label(self, text="Server capacity time (ticks)")
-        self.lbl_time_server_capacity.grid(row=4, column=0, padx=10, pady=10)
+        self.lbl_time_server_capacity.grid(row=5, column=0, padx=10, pady=10)
         self.ent_time_server_capacity = Entry(self)
-        self.ent_time_server_capacity.grid(row=4, column=1, padx=10, pady=10)
+        self.ent_time_server_capacity.grid(row=5, column=1, padx=10, pady=10)
         self.cmb_job.bind("<<ComboboxSelected>>", self.action_select_job)
  
         # Server period time
         self.lbl_time_server_period = Label(self, text="Server period time (ticks)")
-        self.lbl_time_server_period.grid(row=5, column=0, padx=10, pady=10)
+        self.lbl_time_server_period.grid(row=6, column=0, padx=10, pady=10)
         self.ent_time_server_period = Entry(self)
-        self.ent_time_server_period.grid(row=5, column=1, padx=10, pady=10)
+        self.ent_time_server_period.grid(row=6, column=1, padx=10, pady=10)
         
         # Add periodic task
         self.btn_add_task = Button(self, text="Add task to batch", command=self.action_tap)
-        self.btn_add_task.grid(row=6, column=0, padx=10, pady=10)
+        self.btn_add_task.grid(row=7, column=0, padx=10, pady=10)
 
         # Remove periodic task
         self.btn_remove_task = Button(self, text="Remove task from batch", command=self.action_trp)
-        self.btn_remove_task.grid(row=6, column=1, padx=10, pady=10)
+        self.btn_remove_task.grid(row=7, column=1, padx=10, pady=10)
 
         # Join batch
         self.btn_upload = Button(self, text="Upload batch", command=self.action_bjp)
@@ -243,6 +249,7 @@ class App(Frame):
         current_task.name = self.cmb_task.get()
         current_task.time_compute = self.ent_time_compute.get()
         current_task.time_period = self.ent_time_period.get()
+        current_task.parameters = self.ent_parameters.get()
         current_task.added = True
         for job in jobs:
             if job == self.cmb_job.get():
@@ -258,21 +265,23 @@ class App(Frame):
                 break
         if not found:
             tasks.append(current_task)
-        self.cmd_push("TAP,{name},{compute},{period},{job}\n".format(
+        self.cmd_push("TAP,{name},{compute},{period},{job},{parameters}\n".format(
             name=current_task.name,
             compute=current_task.time_compute,
             period=current_task.time_period,
-            job=current_task.job))
+            job=current_task.job,
+            parameters=current_task.parameters))
         current_task = Task()
         self.layout_refresh()
     
     def action_tas(self): 
         global current_task
         current_task.name = self.cmb_task.get()
-        self.cmd_push("TAS,{name},{compute},{job}\n".format(
-            name=current_task.name,
+        current_task.parameters = self.ent_parameters.get()
+        self.cmd_push("TAS,{compute},{job},{parameters}\n".format(
             compute=current_task.time_compute,
-            job=current_task.job))
+            job=current_task.job,
+            parameters=current_task.parameters))
 
     def action_trp(self):
         global current_task
