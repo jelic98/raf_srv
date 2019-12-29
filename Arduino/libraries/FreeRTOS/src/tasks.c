@@ -120,10 +120,6 @@ configIDLE_TASK_NAME in FreeRTOSConfig.h. */
 	#define configCONSOLE_TASK_NAME "CONSOLE"
 #endif
 
-#ifndef configSERVER_TASK_NAME
-	#define configSERVER_TASK_NAME "SERVER"
-#endif
-
 #ifndef configCONSOLE_BUFF_LEN
 	#define configCONSOLE_BUFF_LEN 64
 #endif
@@ -370,14 +366,15 @@ StaticTask_t pxTaskBuffers[configMAX_TASK_COUNT];
 BaseType_t uxTaskCount = 0;
 BaseType_t uxTaskCurrent = -1;
 
-BaseType_t uxSporadicHead = -1;
-BaseType_t uxSporadicTail = -1;
+BaseType_t uxSporadicSize = 0;
+BaseType_t uxSporadicHead = 0;
+BaseType_t uxSporadicTail = configMAX_TASK_COUNT - 1;
 
 BaseType_t xSchedulePossible = pdTRUE;
 BaseType_t uxSchedulePeriod = 1;
 
 BaseType_t uxServerCapacity = 0;
-BaseType_t uxServerPeriod = 0;
+BaseType_t uxServerPeriod = 100;
 
 BaseType_t uxServerRT = 0;
 BaseType_t uxServerRA = 0;
@@ -386,7 +383,6 @@ BaseType_t uxConsoleCompute = 1;
 BaseType_t uxConsolePeriod = 20;
 
 TCB_t* pxIdleTCB;
-TCB_t* pxServerTCB;
 TCB_t* pxConsoleTCB;
 
 char pcInputBuff[configCONSOLE_BUFF_LEN];
@@ -422,33 +418,46 @@ void vTaskGetMaxUtilization(BaseType_t* pxCapacity, BaseType_t* pxPeriod) {
 }
 
 void vJobPrinter(void* pvParameters) {
-	for(;;) {
-		//vConsoleWrite("%s", (char*) pvParameters);
-		//vTaskFinish(NULL);
-	}
+	//vConsoleWrite("%s\n", (char*) pvParameters);
+	vTaskFinish(NULL);
 }
 
 void vJobSporadic(void* pvParameters) {
-	for(;;) {
-		//vConsoleWrite("SPORADIC: %s\n", (char*) pvParameters);
-		//vTaskFinish(NULL);
-	}
+	vConsoleWrite("SPORADIC: %s\n", (char*) pvParameters);
 }
 
 void vSporadicEnqueue(xTaskSporadic_t xSporadic) {
-	if(uxSporadicTail == uxSporadicHead) {
+	if(uxSporadicSize == configMAX_TASK_COUNT) {
 		return;
 	}
 
-	xSporadicTasks[uxSporadicTail = ++uxSporadicTail % configMAX_TASK_COUNT] = xSporadic;
+	uxSporadicTail = ++uxSporadicTail % configMAX_TASK_COUNT;
+
+	uxSporadicSize++;
+
+	xSporadicTasks[uxSporadicTail] = xSporadic;
 }
 
 xTaskSporadic_t* pxSporadicDequeue() {
-	if(uxSporadicTail == uxSporadicHead) {
+	if(uxSporadicSize == 0) {
 		return NULL;
 	}
 
-	return &xSporadicTasks[++uxSporadicHead % configMAX_TASK_COUNT];
+	xTaskSporadic_t* pxSporadic = &xSporadicTasks[uxSporadicHead];
+
+	//uxSporadicHead = ++uxSporadicHead % configMAX_TASK_COUNT;
+
+	//uxSporadicSize--;
+
+	return pxSporadic;
+}
+
+xTaskSporadic_t* pxSporadicPeek() {
+	if(uxSporadicSize == 0) {
+		return NULL;
+	}
+
+	return &xSporadicTasks[uxSporadicHead];
 }
 
 /*lint -save -e956 A manual analysis and inspection has been used to determine
@@ -570,7 +579,6 @@ static void prvInitialiseTaskLists( void ) PRIVILEGED_FUNCTION;
  *
  */
 static portTASK_FUNCTION_PROTO( prvIdleTask, pvParameters );
-static portTASK_FUNCTION_PROTO( prvServerTask, pvParameters );
 static portTASK_FUNCTION_PROTO( prvConsoleTask, pvParameters );
 
 /*
@@ -756,8 +764,8 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 
 		if(!strcmp(pcJob, "Printer")) {
 			xJob = vJobPrinter;
-		}else if(!strcmp(pcJob, configSERVER_TASK_NAME)) {
-			xJob = prvServerTask;
+		}else if(!strcmp(pcJob, "Sporadic")) {
+			xJob = vJobSporadic;
 		}else if(!strcmp(pcJob, configCONSOLE_TASK_NAME)) {
 			xJob = prvConsoleTask;
 		}else {
@@ -1519,11 +1527,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 	void vTaskFinish(TaskHandle_t xTaskToDelete) {
 		TCB_t* pxFinishedTCB = prvGetTCBFromHandle(xTaskToDelete);
 		pxFinishedTCB->uxFinished = pdTRUE;
-	}
-
-	BaseType_t uxTaskGetCompute(TaskHandle_t xTaskToDelete) {
-		TCB_t *pxTCB = prvGetTCBFromHandle(xTaskToDelete);
-		return pxTCB->uxCompute;
+		for(;;);
 	}
 
 #if ( INCLUDE_vTaskDelayUntil == 1 )
@@ -2251,20 +2255,13 @@ BaseType_t xReturn;
 	/* Add the idle task at the lowest priority. */
 	#if( configSUPPORT_STATIC_ALLOCATION == 1 )
 	{
-		pxServerTCB = (TCB_t*) xTaskAddPeriodic(
-			configSERVER_TASK_NAME,
-			configSERVER_TASK_NAME,
-			uxServerCapacity,
-			uxServerPeriod,
-			NULL);
-
 		pxConsoleTCB = (TCB_t*) xTaskAddPeriodic(
 			configCONSOLE_TASK_NAME,
 			configCONSOLE_TASK_NAME,
 			uxConsoleCompute,
 			uxConsolePeriod,
 			NULL);
-
+		
 		StaticTask_t *pxIdleTaskTCBBuffer = NULL;
 		StackType_t *pxIdleTaskStackBuffer = NULL;
 		configSTACK_DEPTH_TYPE ulIdleTaskStackSize;
@@ -3243,6 +3240,29 @@ BaseType_t xSwitchRequired = pdFALSE;
 #endif /* configUSE_APPLICATION_TASK_TAG */
 /*-----------------------------------------------------------*/
 
+void vServerTask() {
+	xTaskSporadic_t* pxSporadic = pxSporadicPeek();
+
+	if(xTaskGetTickCount() - pxSporadic->uxArrival >= pxSporadic->uxCompute) {
+		pxSporadicDequeue();
+	}
+
+	pxSporadic = pxSporadicPeek();
+	
+	if(pxSporadic) {
+		//pxSporadic->xJob(pvParameters);
+	}
+}
+
+void vNextTask(TickType_t xCurrentTick) {
+	pxCurrentTCB = pxTasks[uxTaskCurrent = ++uxTaskCurrent % uxTaskCount];
+	pxCurrentTCB->uxArrival = xCurrentTick;
+	pxCurrentTCB->uxFinished = pdFALSE;
+	StackType_t* pxTopOfStack = &(pxCurrentTCB->pxStack[configMINIMAL_STACK_SIZE - (configSTACK_DEPTH_TYPE) 1]);
+	pxTopOfStack = (StackType_t *) (((portPOINTER_SIZE_TYPE) pxTopOfStack) & (~((portPOINTER_SIZE_TYPE) portBYTE_ALIGNMENT_MASK)));
+	pxCurrentTCB->pxTopOfStack = pxPortInitialiseStack(pxTopOfStack, pxCurrentTCB->xJob, pxCurrentTCB->pvParameters);
+}
+
 void vTaskSwitchContext( void )
 {
 	if( uxSchedulerSuspended != ( UBaseType_t ) pdFALSE )
@@ -3301,11 +3321,10 @@ void vTaskSwitchContext( void )
  				vConsoleWrite("G,%d,%d\n", xCurrentTick, uxServerCapacity);
 			}
 
-			if(uxTaskCount > 2 && xSchedulePossible == pdTRUE) {
-				vConsoleWrite("%s %d %d\n", pxCurrentTCB->pcTaskName, uxTaskCurrent, uxTaskCount);
-
-				for(int i = 0; i < uxTaskCount; i++) vConsoleWrite("[%d, %d, %d] %s\n", xCurrentTick, pxTasks[i]->uxArrival, pxTasks[i]->uxCompute, pxTasks[i]->pcTaskName);
-				vConsoleWrite("____________\n");
+			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE) {
+				vConsoleWrite("%s\n", pxCurrentTCB->pcTaskName);
+				//for(int i = 0; i < uxTaskCount; i++) vConsoleWrite("[%d, %d, %d] %s\n", xCurrentTick, pxTasks[i]->uxArrival, pxTasks[i]->uxCompute, pxTasks[i]->pcTaskName);
+				//vConsoleWrite("____________\n");
 
 				if(xCurrentTick == uxServerRT) {
 					uxServerCapacity += uxServerRA;
@@ -3318,18 +3337,19 @@ void vTaskSwitchContext( void )
 					uxServerRA -= uxServerCapacity;
 				}
 
-				if(uxSporadicTail != uxSproadicHead && uxServerCapacity > 0) {
-					pxCurrentTCB = pxTasks[0];
-					StackType_t* pxTopOfStack = &(pxCurrentTCB->pxStack[configMINIMAL_STACK_SIZE - (configSTACK_DEPTH_TYPE) 1]);
-					pxTopOfStack = (StackType_t *) (((portPOINTER_SIZE_TYPE) pxTopOfStack) & (~((portPOINTER_SIZE_TYPE) portBYTE_ALIGNMENT_MASK)));
-					//pxCurrentTCB->pxTopOfStack = pxPortInitialiseStack(pxTopOfStack, pxCurrentTCB->xJob, pxCurrentTCB->pvParameters);
-				}else if(pxCurrentTCB->uxFinished == pdTRUE || xCurrentTick - pxCurrentTCB->uxArrival >= pxCurrentTCB->uxCompute) {
-					pxCurrentTCB = pxTasks[uxTaskCurrent = ++uxTaskCurrent % uxTaskCount];
-					pxCurrentTCB->uxArrival = xCurrentTick;
-					pxCurrentTCB->uxFinished = pdFALSE;
-					StackType_t* pxTopOfStack = &(pxCurrentTCB->pxStack[configMINIMAL_STACK_SIZE - (configSTACK_DEPTH_TYPE) 1]);
-					pxTopOfStack = (StackType_t *) (((portPOINTER_SIZE_TYPE) pxTopOfStack) & (~((portPOINTER_SIZE_TYPE) portBYTE_ALIGNMENT_MASK)));
-					//pxCurrentTCB->pxTopOfStack = pxPortInitialiseStack(pxTopOfStack, pxCurrentTCB->xJob, pxCurrentTCB->pvParameters);
+				if(pxCurrentTCB->uxFinished == pdTRUE) {
+					if(uxServerPeriod < pxTasks[(uxTaskCurrent + 1) % uxTaskCount] && uxSporadicSize > 0 && uxServerCapacity > 0) {
+						vServerTask();
+					}else if(xCurrentTick - pxCurrentTCB->uxArrival >= pxCurrentTCB->uxCompute) {
+						vNextTask(xCurrentTick);
+					}
+				}else {
+					if(uxServerPeriod < pxCurrentTCB->uxPeriod && uxSporadicSize > 0 && uxServerCapacity > 0) {
+						vServerTask();
+					}else if(!strcmp(pxCurrentTCB->pcTaskName, configTIMER_SERVICE_TASK_NAME)
+							|| !strcmp(pxCurrentTCB->pcTaskName, configCONSOLE_TASK_NAME)) {
+						vNextTask(xCurrentTick);
+					}
 				}
 			}else {
 				pxCurrentTCB = pxConsoleTCB;
@@ -3661,23 +3681,6 @@ void vTaskMissedYield( void )
 
 #endif /* configUSE_TRACE_FACILITY */
 
-static portTASK_FUNCTION( prvServerTask, pvParameters ) {
-	xTaskSporadic_t* pxSporadic = pxSporadicHead();
-
-	if(xTaskGetTickCount() - pxSporadic->uxArrival >= pxSporadic->uxCompute) {
-		pxSporadicDequeue();
-	}
-
-	pxSporadic = pxSporadicHead();
-
-	if(pxSporadic) {
-		for(;;) {
-			//xSporadic.xJob(pvParameters);
-			//vTaskFinish(NULL);
-		}
-	}
-}
-
 static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 	for(;;) {
 		if(iConsoleAvailable()) {
@@ -3715,7 +3718,7 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 				);
 			}else if(!strcmp(pcCmd, "TAS")) {
 				// TaskAddSporadic
-				// TAP,compute,job,parameters
+				// TAS,compute,job,parameters
 
 				char* pcCompute = strtok(NULL, pcSep);
 				char* pcJob = strtok(NULL, pcSep);

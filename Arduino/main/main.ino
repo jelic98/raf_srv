@@ -18,7 +18,7 @@ void setup() {
     "t2",
     "Printer",
     2,
-    100,
+    60,
     "B");
 }
 

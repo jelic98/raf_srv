@@ -728,7 +728,6 @@ void vTaskAllocateMPURegions( TaskHandle_t xTask, const MemoryRegion_t * const p
  */
 void vTaskDelete( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
 void vTaskFinish( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
-BaseType_t uxTaskGetCompute( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
 void vTaskGetMaxUtilization( BaseType_t* pxCapacity, BaseType_t* pxPeriod ) PRIVILEGED_FUNCTION;
 
 void vConsoleSet(void (*vCW)(char*, ...), void (*vCR)(char*, ...), int (*iCA)());
