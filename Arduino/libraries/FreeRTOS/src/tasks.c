@@ -374,7 +374,7 @@ BaseType_t xSchedulePossible = pdTRUE;
 BaseType_t uxSchedulePeriod = 1;
 
 BaseType_t uxServerCapacity = 0;
-BaseType_t uxServerPeriod = 100;
+BaseType_t uxServerPeriod = 0;
 
 BaseType_t uxServerRT = 0;
 BaseType_t uxServerRA = 0;
@@ -418,7 +418,7 @@ void vTaskGetMaxUtilization(BaseType_t* pxCapacity, BaseType_t* pxPeriod) {
 }
 
 void vJobPrinter(void* pvParameters) {
-	//vConsoleWrite("%s\n", (char*) pvParameters);
+	vConsoleWrite("%s\n", (char*) pvParameters);
 	vTaskFinish(NULL);
 }
 
@@ -3254,8 +3254,8 @@ void vServerTask() {
 	}
 }
 
-void vNextTask(TickType_t xCurrentTick) {
-	pxCurrentTCB = pxTasks[uxTaskCurrent = ++uxTaskCurrent % uxTaskCount];
+void vNextTask(BaseType_t xTaskIndex, TickType_t xCurrentTick) {
+	pxCurrentTCB = pxTasks[xTaskIndex >= 0 ? xTaskIndex : (uxTaskCurrent = ++uxTaskCurrent % uxTaskCount)];
 	pxCurrentTCB->uxArrival = xCurrentTick;
 	pxCurrentTCB->uxFinished = pdFALSE;
 	StackType_t* pxTopOfStack = &(pxCurrentTCB->pxStack[configMINIMAL_STACK_SIZE - (configSTACK_DEPTH_TYPE) 1]);
@@ -3321,7 +3321,7 @@ void vTaskSwitchContext( void )
  				vConsoleWrite("G,%d,%d\n", xCurrentTick, uxTaskCurrent);
 			}
 
-			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE) {
+			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE && uxServerPeriod > 0) {
 				vConsoleWrite("%s\n", pxCurrentTCB->pcTaskName);
 				//for(int i = 0; i < uxTaskCount; i++) vConsoleWrite("[%d, %d, %d] %s\n", xCurrentTick, pxTasks[i]->uxArrival, pxTasks[i]->uxCompute, pxTasks[i]->pcTaskName);
 				//vConsoleWrite("____________\n");
@@ -3341,18 +3341,18 @@ void vTaskSwitchContext( void )
 					if(uxServerPeriod < pxTasks[(uxTaskCurrent + 1) % uxTaskCount] && uxSporadicSize > 0 && uxServerCapacity > 0) {
 						vServerTask();
 					}else if(xCurrentTick - pxCurrentTCB->uxArrival >= pxCurrentTCB->uxCompute) {
-						vNextTask(xCurrentTick);
+						vNextTask(-1, xCurrentTick);
 					}
 				}else {
 					if(uxServerPeriod < pxCurrentTCB->uxPeriod && uxSporadicSize > 0 && uxServerCapacity > 0) {
 						vServerTask();
 					}else if(!strcmp(pxCurrentTCB->pcTaskName, configTIMER_SERVICE_TASK_NAME)
 							|| !strcmp(pxCurrentTCB->pcTaskName, configCONSOLE_TASK_NAME)) {
-						vNextTask(xCurrentTick);
+						vNextTask(-1, xCurrentTick);
 					}
 				}
 			}else {
-				pxCurrentTCB = pxConsoleTCB;
+				vNextTask(0, xCurrentTick);
 			}
 
 			xPrevTick = xCurrentTick;
@@ -3694,6 +3694,7 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 		if(uxInputReady == pdTRUE) {
 			char* pcSep = ",";
 			char* pcCmd = strtok(pcInputBuff, pcSep);
+			
 
 			if(!strcmp(pcCmd, "TAP")) {
 				// TaskAddPeriodic
@@ -3755,7 +3756,7 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 			}else if(!strcmp(pcCmd, "SC")) {
 				// ServerConfiguration
 				// SC,capacity,period
-
+				
 				char* pcCapacity = strtok(NULL, pcSep);
 				char* pcPeriod = strtok(NULL, pcSep);
 
