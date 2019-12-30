@@ -3318,7 +3318,7 @@ void vTaskSwitchContext( void )
 
 		if(xCurrentTick != xPrevTick) {
 			if(xCurrentTick % configLOG_PERIOD == 0) {
- 				vConsoleWrite("G,%d,%d\n", xCurrentTick, uxServerCapacity);
+ 				vConsoleWrite("G,%d,%d\n", xCurrentTick, uxTaskCurrent);
 			}
 
 			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE) {

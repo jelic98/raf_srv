@@ -70,37 +70,45 @@ class ConsoleThread(Thread):
                 
 class Plot:
     def __init__(self):
+        self.total_tasks = 1
         self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(1, 1, 1)
         self.xs = []
         self.ys = []
+        for task in range(self.total_tasks):
+            self.xs.append([])
+            self.ys.append([])
 
     def update(self, i): 
         try:
-            fin = open(PATH_CONSOLE, "w+")
+            fin = open(PATH_GRAPH, "w+")
             fin.close()
-            self.xs.clear()
-            self.ys.clear()
+        
+            for task in range(self.total_tasks):
+                self.xs[task].clear()
+                self.ys[task].clear()
 
+            fin = open(PATH_GRAPH, "r+")
             line = fin.readline()
-            
+            print(line)
+
             while line:
                 coords = line.replace("\n", "").split(",")
         
                 if(len(coords) == 2):
-                    self.xs.append(coords[0])
-                    self.ys.append(coords[1])
+                    self.xs[coords[1]].append(coords[0])
+                    self.ys[coords[1]].append(1)
 
                 line = fin.readline()
-            
-            plt.title("FreeRTOS Sporadic Server - RM Scheduling")
-            plt.ylabel("Capacity")
-            
+             
             self.xs = self.xs[-10:]
             self.ys = self.ys[-10:]
 
-            self.ax.clear()
-            self.ax.plot(self.xs, self.ys)
+            for task in range(self.total_tasks):
+                plt.subplot(2, 1, task + 1)
+                plt.ylabel("Task {}".format(task))
+                plt.plot(self.xs[0], self.ys[0])
+
+            fin.close()
         finally:
                 fin.close()
 
