@@ -355,7 +355,6 @@ typedef tskTCB TCB_t;
 xTaskSporadic_t xSporadicTasks[configMAX_TASK_COUNT];
 TCB_t* pxTasks[configMAX_TASK_COUNT];
 TCB_t* pxNewTasks[configMAX_TASK_COUNT];
-StackType_t puxStackBuffers[configMAX_TASK_COUNT][configMINIMAL_STACK_SIZE];
 StaticTask_t pxTaskBuffers[configMAX_TASK_COUNT];
 BaseType_t pxTaskMemory[configMAX_TASK_COUNT] = {0}; 
 
@@ -375,8 +374,6 @@ BaseType_t uxSchedulePeriod = 1;
 // BaseType_t uxServerPeriod = 0;
 BaseType_t uxServerCapacity = 5;
 BaseType_t uxServerPeriod = 30;
-
-// TODO Multiple replanichments?
 
 BaseType_t uxServerRT = 0;
 BaseType_t uxServerRA = 0;
@@ -780,7 +777,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 	void vBatchJoin() {
 		if(!uxNewTaskCount) {
 			return;
-		}
+		}	
 
 		xSchedulePossible = pdTRUE;
 
@@ -3329,15 +3326,11 @@ void vTaskSwitchContext( void )
 			}
 
 			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE && uxServerPeriod > 0) {
-				vConsoleWrite("%s %d\n",
-						pxCurrentTCB->pcTaskName,
-						uxTaskCount);
 				for(int i = 0; i < uxTaskCount; i++)
-				vConsoleWrite("[%d, %d, %d] %d %s\n",
-						xCurrentTick,
+				vConsoleWrite("%c[%d, %d] %s\n",
+						pxCurrentTCB == pxTasks[i] ? '*' : ' ',
 						pxTasks[i]->uxArrival,
 						pxTasks[i]->uxCompute,
-						pxTasks[i],
 						pxTasks[i]->pcTaskName);
 				vConsoleWrite("____________\n");
 
@@ -3737,6 +3730,8 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 					xCompute,
 					xPeriod,
 					pcParameters);
+
+				for(int i = 0; i < uxNewTaskCount; i++) vConsoleWrite("??? %s\n", pxNewTasks[i]->pcTaskName);
 			}else if(!strcmp(pcCmd, "TAS")) {
 				// TaskAddSporadic
 				// TAS,compute,job,parameters

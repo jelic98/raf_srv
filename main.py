@@ -12,6 +12,7 @@ from threading import Thread
 
 PATH_CONSOLE = "io/console.csv"
 PATH_GRAPH = "io/graph.csv"
+MAX_TASK_COUNT = 4
 
 class SerialThread(Thread):
     def __init__(self):
@@ -33,7 +34,6 @@ class SerialThread(Thread):
             if response[0] == "G": # Graph
                 coords = response.split(",")
                 coords.pop(0)
-        
                 fgraph = open(PATH_GRAPH, "a+")
                 fgraph.write(",".join(coords))
                 fgraph.close()
@@ -41,7 +41,6 @@ class SerialThread(Thread):
                 cfg = response.split(",")
                 cfg_capacity = cfg[1]
                 cfg_period = cfg[2]
-
                 mb.showinfo("Maximum utilization", "Capacity={}\nPeriod={}".format(cfg_capacity, cfg_period))
             else: # Console
                 fconsole = open(PATH_CONSOLE, "a+")
@@ -54,8 +53,6 @@ class ConsoleThread(Thread):
         self.console = console
         
     def run(self):
-        fin = open(PATH_CONSOLE, "w+")
-        fin.close()
         fin = open(PATH_CONSOLE, "r+")
 
         while True:
@@ -70,7 +67,7 @@ class ConsoleThread(Thread):
                 
 class Plot:
     def __init__(self):
-        self.total_tasks = 1
+        self.total_tasks = MAX_TASK_COUNT
         self.fig = plt.figure()
         self.xs = []
         self.ys = []
@@ -80,23 +77,23 @@ class Plot:
 
     def update(self, i): 
         try:
-            fin = open(PATH_GRAPH, "w+")
-            fin.close()
-        
             for task in range(self.total_tasks):
                 self.xs[task].clear()
                 self.ys[task].clear()
 
             fin = open(PATH_GRAPH, "r+")
             line = fin.readline()
-            print(line)
-
+            
             while line:
                 coords = line.replace("\n", "").split(",")
         
-                if(len(coords) == 2):
-                    self.xs[coords[1]].append(coords[0])
-                    self.ys[coords[1]].append(1)
+                if len(coords) == 2 and int(coords[1]) >= 0:
+                    self.xs[int(coords[1])].append(int(coords[0]))
+                    self.ys[int(coords[1])].append(1)
+                    for task in range(self.total_tasks):
+                        if task != int(coords[1]):
+                            self.xs[task].append(int(coords[0]))
+                            self.ys[task].append(0)
 
                 line = fin.readline()
              
@@ -104,11 +101,9 @@ class Plot:
             self.ys = self.ys[-10:]
 
             for task in range(self.total_tasks):
-                plt.subplot(2, 1, task + 1)
+                plt.subplot(self.total_tasks, 1, task + 1)
                 plt.ylabel("Task {}".format(task))
-                plt.plot(self.xs[0], self.ys[0])
-
-            fin.close()
+                plt.plot(self.xs[task], self.ys[task])
         finally:
                 fin.close()
 
@@ -326,6 +321,7 @@ app = App(root)
 tasks = []
 jobs = [
     "Printer",
+    "Sporadic"
 ]
 
 current_task = Task()
