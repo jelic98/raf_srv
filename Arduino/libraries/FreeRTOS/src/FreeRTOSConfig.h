@@ -50,6 +50,7 @@
 #define configMAX_PRIORITIES                4
 #define configMINIMAL_STACK_SIZE            ( 192 )
 #define configMAX_TASK_NAME_LEN             ( 8 )
+#define configMAX_TASK_PARAMS_LEN           ( 4 )
 #define configUSE_TRACE_FACILITY            0
 #define configUSE_16_BIT_TICKS              1
 #define configIDLE_SHOULD_YIELD             1

@@ -344,7 +344,7 @@ typedef struct TaskControlBlock_t
 	TickType_t uxArrival;
 	BaseType_t uxFinished;
 	TaskFunction_t xJob;
-	void* pvParameters;
+	char pvParameters[configMAX_TASK_PARAMS_LEN];
 	BaseType_t xMemoryIndex;
 } tskTCB;
 
@@ -370,10 +370,13 @@ BaseType_t uxSporadicTail = configMAX_TASK_COUNT - 1;
 BaseType_t xSchedulePossible = pdTRUE;
 BaseType_t uxSchedulePeriod = 1;
 
-BaseType_t uxServerCapacity = 0;
-// TODO Uncomment line below before release
+// TODO Uncomment lines below before release
+// BaseType_t uxServerCapacity = 0;
 // BaseType_t uxServerPeriod = 0;
-BaseType_t uxServerPeriod = 100;
+BaseType_t uxServerCapacity = 5;
+BaseType_t uxServerPeriod = 30;
+
+// TODO Multiple replanichments?
 
 BaseType_t uxServerRT = 0;
 BaseType_t uxServerRA = 0;
@@ -422,14 +425,14 @@ void vJobPrinter(void* pvParameters) {
 }
 
 void vJobSporadic(void* pvParameters) {
-	vConsoleWrite("SPORADIC: %s\n", (char*) pvParameters);
+	vConsoleWrite("> %s\n", (char*) pvParameters);
 }
 
 void vSporadicEnqueue(xTaskSporadic_t xSporadic) {
 	if(uxSporadicSize == configMAX_TASK_COUNT) {
 		return;
 	}
-
+	
 	uxSporadicTail = ++uxSporadicTail % configMAX_TASK_COUNT;
 
 	uxSporadicSize++;
@@ -444,9 +447,9 @@ xTaskSporadic_t* pxSporadicDequeue() {
 
 	xTaskSporadic_t* pxSporadic = &xSporadicTasks[uxSporadicHead];
 
-	//uxSporadicHead = ++uxSporadicHead % configMAX_TASK_COUNT;
+	uxSporadicHead = ++uxSporadicHead % configMAX_TASK_COUNT;
 
-	//uxSporadicSize--;
+	uxSporadicSize--;
 
 	return pxSporadic;
 }
@@ -874,7 +877,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			pxNewTCB->uxArrival = 0;
 			pxNewTCB->uxFinished = pdTRUE;
 			pxNewTCB->xJob = xJob;
-			pxNewTCB->pvParameters = pvParameters;
+			strcpy(pxNewTCB->pvParameters, pvParameters);
 			pxNewTCB->xMemoryIndex = xMemoryIndex;
 
 			#if( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 ) /*lint !e731 !e9029 Macro has been consolidated for readability reasons. */
@@ -902,8 +905,8 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 		xTaskSporadic_t xSporadic;
 		xSporadic.xJob = xGetJob(pcJob);
 		xSporadic.uxCompute = uxCompute;
-		xSporadic.uxArrival = xTaskGetTickCount();
-		xSporadic.pvParameters = pvParameters;
+		strcpy(xSporadic.pvParameters, pvParameters);
+		
 		vSporadicEnqueue(xSporadic);
 
 		return xSporadic;
@@ -3242,18 +3245,20 @@ BaseType_t xSwitchRequired = pdFALSE;
 #endif /* configUSE_APPLICATION_TASK_TAG */
 /*-----------------------------------------------------------*/
 
-void vServerTask() {
+void vServerTask() {	
 	xTaskSporadic_t* pxSporadic = pxSporadicPeek();
 
-	if(xTaskGetTickCount() - pxSporadic->uxArrival >= pxSporadic->uxCompute) {
+	if(!pxSporadic->uxCompute) {
 		pxSporadicDequeue();
 	}
 
 	pxSporadic = pxSporadicPeek();
 	
 	if(pxSporadic) {
-		//pxSporadic->xJob(pvParameters);
+		pxSporadic->xJob(pxSporadic->pvParameters);
 	}
+
+	pxSporadic->uxCompute--;
 }
 
 void vNextTask(BaseType_t xTaskIndex, TickType_t xCurrentTick) {
@@ -3324,8 +3329,16 @@ void vTaskSwitchContext( void )
 			}
 
 			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE && uxServerPeriod > 0) {
-				vConsoleWrite("%s %d\n", pxCurrentTCB->pcTaskName, uxTaskCount);
-				for(int i = 0; i < uxTaskCount; i++) vConsoleWrite("[%d, %d, %d] %s\n", xCurrentTick, pxTasks[i]->uxArrival, pxTasks[i]->uxCompute, pxTasks[i]->pcTaskName);
+				vConsoleWrite("%s %d\n",
+						pxCurrentTCB->pcTaskName,
+						uxTaskCount);
+				for(int i = 0; i < uxTaskCount; i++)
+				vConsoleWrite("[%d, %d, %d] %d %s\n",
+						xCurrentTick,
+						pxTasks[i]->uxArrival,
+						pxTasks[i]->uxCompute,
+						pxTasks[i],
+						pxTasks[i]->pcTaskName);
 				vConsoleWrite("____________\n");
 
 				if(xCurrentTick == uxServerRT) {
@@ -3340,7 +3353,7 @@ void vTaskSwitchContext( void )
 				}
 
 				if(pxCurrentTCB->uxFinished == pdTRUE) {
-					if(uxServerPeriod < pxTasks[(uxTaskCurrent + 1) % uxTaskCount] && uxSporadicSize > 0 && uxServerCapacity > 0) {
+					if(uxSporadicSize > 0 && uxServerCapacity > 0) {
 						vServerTask();
 					}else if(xCurrentTick - pxCurrentTCB->uxArrival >= pxCurrentTCB->uxCompute) {
 						vNextTask(-1, xCurrentTick);
@@ -3733,7 +3746,7 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 				char* pcParameters = trim(strtok(NULL, pcSep));
 
 				TickType_t xCompute = atoi(pcCompute);
-
+				
 				xTaskCreateSporadic(
 					pcJob,
 					xCompute,

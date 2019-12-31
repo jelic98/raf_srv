@@ -37,9 +37,8 @@
 
 typedef struct xTaskSporadic_t {
 	BaseType_t uxCompute;
-	BaseType_t uxArrival;
 	TaskFunction_t xJob;
-	void* pvParameters;
+	char pvParameters[configMAX_TASK_PARAMS_LEN];
 } xTaskSporadic_t;
 
 #ifdef __cplusplus
