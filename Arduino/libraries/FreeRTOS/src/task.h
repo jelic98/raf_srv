@@ -35,6 +35,13 @@
 
 #include "list.h"
 
+typedef struct xTaskSporadic_t {
+	BaseType_t uxCompute;
+	BaseType_t uxArrival;
+	TaskFunction_t xJob;
+	void* pvParameters;
+} xTaskSporadic_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -453,22 +460,14 @@ is used in assert() statements. */
 
 	void vBatchJoin() PRIVILEGED_FUNCTION;
 
-    TaskHandle_t xTaskAddPeriodic(
+    TaskHandle_t xTaskCreatePeriodic(
 			const char * const pcName,
 			const char * const pcJob,
 			BaseType_t uxCompute,
 			BaseType_t uxPeriod,
 			void* pvParameters ) PRIVILEGED_FUNCTION;
 
-    TaskHandle_t xTaskCreatePeriodic(
-			const char * const pcName,
-			const char * const pcJob,
-			BaseType_t uxCompute,
-			BaseType_t uxPeriod,
-			void* pvParameters,
-			BaseType_t uxPriority ) PRIVILEGED_FUNCTION;
-
-    TaskHandle_t xTaskCreateSporadic(
+	xTaskSporadic_t xTaskCreateSporadic(
 			const char * const pcJob,
 			BaseType_t uxCompute,
 			void* pvParameters ) PRIVILEGED_FUNCTION;
