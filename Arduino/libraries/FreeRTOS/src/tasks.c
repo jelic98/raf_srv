@@ -355,12 +355,13 @@ typedef tskTCB TCB_t;
 xTaskSporadic_t xSporadicTasks[configMAX_TASK_COUNT];
 TCB_t* pxTasks[configMAX_TASK_COUNT];
 TCB_t* pxNewTasks[configMAX_TASK_COUNT];
+StackType_t puxStackBuffers[configMAX_TASK_COUNT][configMINIMAL_STACK_SIZE];
 StaticTask_t pxTaskBuffers[configMAX_TASK_COUNT];
 BaseType_t pxTaskMemory[configMAX_TASK_COUNT] = {0}; 
 
 BaseType_t uxTaskCount = 0;
 BaseType_t uxNewTaskCount = 0;
-BaseType_t uxTaskCurrent = -1;
+BaseType_t uxTaskCurrent = 0;
 
 BaseType_t uxSporadicSize = 0;
 BaseType_t uxSporadicHead = 0;
@@ -407,11 +408,13 @@ void vTaskGetMaxUtilization(BaseType_t* pxCapacity, BaseType_t* pxPeriod) {
 
 	for(i = 0; i < uxTaskCount; i++) {
 		if(!i || *pxPeriod < xMinPeriod) {
-			*pxPeriod = xMinPeriod - 1;
+			*pxPeriod = xMinPeriod;
 		}
 
 		fP *= pxTasks[i]->uxCompute / pxTasks[i]->uxPeriod + 1;
 	}
+		
+	*pxPeriod--;
 
 	*pxCapacity = floor(((2 - fP) * *pxPeriod) / fP);
 }
@@ -3242,7 +3245,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 #endif /* configUSE_APPLICATION_TASK_TAG */
 /*-----------------------------------------------------------*/
 
-void vServerTask() {	
+void vServerTask(TickType_t xCurrentTick) {
 	xTaskSporadic_t* pxSporadic = pxSporadicPeek();
 
 	if(!pxSporadic->uxCompute) {
@@ -3253,9 +3256,10 @@ void vServerTask() {
 	
 	if(pxSporadic) {
 		pxSporadic->xJob(pxSporadic->pvParameters);
+		pxSporadic->uxCompute--;
 	}
 
-	pxSporadic->uxCompute--;
+	vNextTask(0, xCurrentTick);
 }
 
 void vNextTask(BaseType_t xTaskIndex, TickType_t xCurrentTick) {
@@ -3321,6 +3325,7 @@ void vTaskSwitchContext( void )
 		TickType_t xCurrentTick = xTaskGetTickCount();
 
 		if(xCurrentTick != xPrevTick) {
+			for(int i = 0; i < uxNewTaskCount; i++) vConsoleWrite("I>>> %s\n", pxNewTasks[i]->pcTaskName);
 			if(xCurrentTick % configLOG_PERIOD == 0) {
  				vConsoleWrite("G,%d,%d\n", xCurrentTick, uxTaskCurrent);
 			}
@@ -3347,13 +3352,13 @@ void vTaskSwitchContext( void )
 
 				if(pxCurrentTCB->uxFinished == pdTRUE) {
 					if(uxSporadicSize > 0 && uxServerCapacity > 0) {
-						vServerTask();
+						vServerTask(xCurrentTick);
 					}else if(xCurrentTick - pxCurrentTCB->uxArrival >= pxCurrentTCB->uxCompute) {
 						vNextTask(-1, xCurrentTick);
 					}
 				}else {
 					if(uxServerPeriod < pxCurrentTCB->uxPeriod && uxSporadicSize > 0 && uxServerCapacity > 0) {
-						vServerTask();
+						vServerTask(xCurrentTick);
 					}else if(!strcmp(pxCurrentTCB->pcTaskName, configTIMER_SERVICE_TASK_NAME)
 							|| !strcmp(pxCurrentTCB->pcTaskName, configCONSOLE_TASK_NAME)) {
 						vNextTask(-1, xCurrentTick);
@@ -3364,6 +3369,7 @@ void vTaskSwitchContext( void )
 			}
 
 			xPrevTick = xCurrentTick;
+			for(int i = 0; i < uxNewTaskCount; i++) vConsoleWrite("O>>> %s\n", pxNewTasks[i]->pcTaskName);
 		}
 
 		traceTASK_SWITCHED_IN();
@@ -3730,8 +3736,6 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 					xCompute,
 					xPeriod,
 					pcParameters);
-
-				for(int i = 0; i < uxNewTaskCount; i++) vConsoleWrite("??? %s\n", pxNewTasks[i]->pcTaskName);
 			}else if(!strcmp(pcCmd, "TAS")) {
 				// TaskAddSporadic
 				// TAS,compute,job,parameters
@@ -3760,13 +3764,18 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 
 					if(!strcmp(pxTCB->pcTaskName, pcName)) {
 						vTaskDelete(pxTCB);
-						break;
+					}else {
+						pxNewTasks[uxNewTaskCount++] = pxTasks[i];
 					}
 				}
+
+				uxTaskCount = 0;
+
+				vBatchJoin();
 			}else if(!strcmp(pcCmd, "BJP")) {
 				// BatchJoinPeriodic
 				// BJP
-			
+				
 				vBatchJoin();
 			}else if(!strcmp(pcCmd, "SC")) {
 				// ServerConfiguration
