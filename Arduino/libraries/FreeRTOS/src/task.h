@@ -36,7 +36,7 @@
 #include "list.h"
 
 typedef struct xTaskSporadic_t {
-	BaseType_t uxCompute;
+	TickType_t uxCompute;
 	TaskFunction_t xJob;
 	char pvParameters[configMAX_TASK_PARAMS_LEN];
 } xTaskSporadic_t;
@@ -462,13 +462,13 @@ is used in assert() statements. */
     TaskHandle_t xTaskCreatePeriodic(
 			const char * const pcName,
 			const char * const pcJob,
-			BaseType_t uxCompute,
-			BaseType_t uxPeriod,
+			TickType_t uxCompute,
+			TickType_t uxPeriod,
 			void* pvParameters ) PRIVILEGED_FUNCTION;
 
 	xTaskSporadic_t xTaskCreateSporadic(
 			const char * const pcJob,
-			BaseType_t uxCompute,
+			TickType_t uxCompute,
 			void* pvParameters ) PRIVILEGED_FUNCTION;
 
 #endif /* configSUPPORT_STATIC_ALLOCATION */
@@ -726,7 +726,7 @@ void vTaskAllocateMPURegions( TaskHandle_t xTask, const MemoryRegion_t * const p
  */
 void vTaskDelete( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
 void vTaskFinish( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
-void vTaskGetMaxUtilization( BaseType_t* pxCapacity, BaseType_t* pxPeriod ) PRIVILEGED_FUNCTION;
+void vTaskGetMaxUtilization(TickType_t* pxCapacity, TickType_t* pxPeriod);
 
 void vConsoleSet(void (*vCW)(char*, ...), void (*vCR)(char*, ...), int (*iCA)());
 

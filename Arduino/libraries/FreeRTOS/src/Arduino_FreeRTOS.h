@@ -1133,12 +1133,13 @@ typedef struct xSTATIC_TCB
         int             iDummy22;
     #endif
 
-	BaseType_t uxCompute;
-	BaseType_t uxPeriod;
+	TickType_t uxCompute;
+	TickType_t uxPeriod;
 	TickType_t uxArrival;
 	BaseType_t uxFinished;
 	TaskFunction_t xJob;
-	void* pvParameters;
+	char pvParameters[configMAX_TASK_PARAMS_LEN];
+	BaseType_t xMemoryIndex;
 } StaticTask_t;
 
 /*

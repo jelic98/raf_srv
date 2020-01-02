@@ -339,8 +339,8 @@ typedef struct TaskControlBlock_t
 		int iTaskErrno;
 	#endif
 
-	BaseType_t uxCompute;
-	BaseType_t uxPeriod;
+	TickType_t uxCompute;
+	TickType_t uxPeriod;
 	TickType_t uxArrival;
 	BaseType_t uxFinished;
 	TaskFunction_t xJob;
@@ -373,14 +373,14 @@ BaseType_t uxSchedulePeriod = 1;
 // TODO Uncomment lines below before release
 // BaseType_t uxServerCapacity = 0;
 // BaseType_t uxServerPeriod = 0;
-BaseType_t uxServerCapacity = 5;
-BaseType_t uxServerPeriod = 30;
+TickType_t uxServerCapacity = 5;
+TickType_t uxServerPeriod = 30;
 
-BaseType_t uxServerRT = 0;
-BaseType_t uxServerRA = 0;
+TickType_t uxServerRT = 0;
+TickType_t uxServerRA = 0;
 
-BaseType_t uxConsoleCompute = 1;
-BaseType_t uxConsolePeriod = 20;
+TickType_t uxConsoleCompute = 1;
+TickType_t uxConsolePeriod = 20;
 
 TCB_t* pxIdleTCB;
 TCB_t* pxConsoleTCB;
@@ -401,10 +401,10 @@ void vConsoleSet(void (*vCW)(char*, ...), void (*vCR)(char*, ...), int (*iCA)())
 	iConsoleAvailable = iCA;
 }
 
-void vTaskGetMaxUtilization(BaseType_t* pxCapacity, BaseType_t* pxPeriod) {
+void vTaskGetMaxUtilization(TickType_t* pxCapacity, TickType_t* pxPeriod) {
 	int i;
 	float fP = 1.0f;
-	BaseType_t xMinPeriod;
+	TickType_t xMinPeriod;
 
 	for(i = 0; i < uxTaskCount; i++) {
 		if(!i || *pxPeriod < xMinPeriod) {
@@ -830,8 +830,8 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 	TaskHandle_t xTaskCreatePeriodic(
 			const char * const pcName,
 			const char * const pcJob,
-			BaseType_t uxCompute,
-			BaseType_t uxPeriod,
+			TickType_t uxCompute,
+			TickType_t uxPeriod,
 			void* pvParameters) {
 		TCB_t *pxNewTCB;
 		TaskHandle_t xReturn;
@@ -899,7 +899,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 
 	xTaskSporadic_t xTaskCreateSporadic(
 			const char * const pcJob,
-			BaseType_t uxCompute,
+			TickType_t uxCompute,
 			void* pvParameters) {
 
 		xTaskSporadic_t xSporadic;

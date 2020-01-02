@@ -12,6 +12,7 @@ SC,5,30
 
 TAP,t1,3,50,Printer,a
 TAP,t2,2,60,Printer,b
+TAP,t3,1,70,Printer,c
 
 BJP
 
