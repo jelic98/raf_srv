@@ -12,7 +12,7 @@ from threading import Thread
 
 PATH_CONSOLE = "io/console.csv"
 PATH_GRAPH = "io/graph.csv"
-MAX_TASK_COUNT = 4
+MAX_TASK_COUNT = 3
 
 class SerialThread(Thread):
     def __init__(self):

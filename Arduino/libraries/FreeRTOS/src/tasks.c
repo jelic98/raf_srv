@@ -373,17 +373,14 @@ BaseType_t uxSchedulePeriod = 1;
 // TODO Uncomment lines below before release
 // BaseType_t uxServerCapacity = 0;
 // BaseType_t uxServerPeriod = 0;
-TickType_t uxServerCapacity = 5;
-TickType_t uxServerPeriod = 30;
+TickType_t uxServerCapacity = 3;
+TickType_t uxServerPeriod = 20;
 
 TickType_t uxServerRT = 0;
 TickType_t uxServerRA = 0;
 
 TickType_t uxConsoleCompute = 1;
 TickType_t uxConsolePeriod = 20;
-
-TCB_t* pxIdleTCB;
-TCB_t* pxConsoleTCB;
 
 char pcInputBuff[configCONSOLE_BUFF_LEN];
 char* pcInputPtr = pcInputBuff;
@@ -2260,7 +2257,7 @@ BaseType_t xReturn;
 	/* Add the idle task at the lowest priority. */
 	#if( configSUPPORT_STATIC_ALLOCATION == 1 )
 	{
-		pxTasks[uxTaskCount++] = pxConsoleTCB = (TCB_t*) xTaskCreatePeriodic(
+		pxTasks[uxTaskCount++] = (TCB_t*) xTaskCreatePeriodic(
 			configCONSOLE_TASK_NAME,
 			configCONSOLE_TASK_NAME,
 			uxConsoleCompute,
@@ -2280,8 +2277,6 @@ BaseType_t xReturn;
 												portPRIVILEGE_BIT, /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
 												pxIdleTaskStackBuffer,
 												pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
-
-		pxIdleTCB = (TCB_t*) pxIdleTaskTCBBuffer;
 
 		if( xIdleTaskHandle != NULL )
 		{
@@ -3325,12 +3320,12 @@ void vTaskSwitchContext( void )
 		TickType_t xCurrentTick = xTaskGetTickCount();
 
 		if(xCurrentTick != xPrevTick) {
-			for(int i = 0; i < uxNewTaskCount; i++) vConsoleWrite("I>>> %s\n", pxNewTasks[i]->pcTaskName);
 			if(xCurrentTick % configLOG_PERIOD == 0) {
- 				vConsoleWrite("G,%d,%d\n", xCurrentTick, uxTaskCurrent);
+ 				vConsoleWrite("G,%d,", xCurrentTick);
 			}
 
 			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE && uxServerPeriod > 0) {
+				/*
 				for(int i = 0; i < uxTaskCount; i++)
 				vConsoleWrite("%c[%d, %d] %s\n",
 						pxCurrentTCB == pxTasks[i] ? '*' : ' ',
@@ -3338,6 +3333,7 @@ void vTaskSwitchContext( void )
 						pxTasks[i]->uxCompute,
 						pxTasks[i]->pcTaskName);
 				vConsoleWrite("____________\n");
+				*/
 
 				if(xCurrentTick == uxServerRT) {
 					uxServerCapacity += uxServerRA;
@@ -3352,24 +3348,52 @@ void vTaskSwitchContext( void )
 
 				if(pxCurrentTCB->uxFinished == pdTRUE) {
 					if(uxSporadicSize > 0 && uxServerCapacity > 0) {
+						if(xCurrentTick % configLOG_PERIOD == 0) {
+ 							vConsoleWrite("%d\n", uxTaskCount);
+						}
+
 						vServerTask(xCurrentTick);
 					}else if(xCurrentTick - pxCurrentTCB->uxArrival >= pxCurrentTCB->uxCompute) {
+						if(xCurrentTick % configLOG_PERIOD == 0) {
+ 							vConsoleWrite("%d\n", uxTaskCurrent);
+						}
+
 						vNextTask(-1, xCurrentTick);
+					}else {
+						if(xCurrentTick % configLOG_PERIOD == 0) {
+ 							vConsoleWrite("%d\n", uxTaskCurrent);
+						}
+						
+						vNextTask(0, xCurrentTick);
 					}
 				}else {
-					if(uxServerPeriod < pxCurrentTCB->uxPeriod && uxSporadicSize > 0 && uxServerCapacity > 0) {
+					if(uxServerPeriod <= pxCurrentTCB->uxPeriod && uxSporadicSize > 0 && uxServerCapacity > 0) {
+						if(xCurrentTick % configLOG_PERIOD == 0) {
+ 							vConsoleWrite("%d\n", uxTaskCount);
+						}
+
 						vServerTask(xCurrentTick);
 					}else if(!strcmp(pxCurrentTCB->pcTaskName, configTIMER_SERVICE_TASK_NAME)
 							|| !strcmp(pxCurrentTCB->pcTaskName, configCONSOLE_TASK_NAME)) {
+						if(xCurrentTick % configLOG_PERIOD == 0) {
+ 							vConsoleWrite("%d\n", uxTaskCurrent);
+						}
+
 						vNextTask(-1, xCurrentTick);
+					}else {
+						if(xCurrentTick % configLOG_PERIOD == 0) {
+ 							vConsoleWrite("%d\n", uxTaskCurrent);
+						}
+						
+						vNextTask(0, xCurrentTick);
 					}
 				}
 			}else {
+ 				vConsoleWrite("%d\n", uxTaskCurrent);
 				vNextTask(0, xCurrentTick);
 			}
-
+			
 			xPrevTick = xCurrentTick;
-			for(int i = 0; i < uxNewTaskCount; i++) vConsoleWrite("O>>> %s\n", pxNewTasks[i]->pcTaskName);
 		}
 
 		traceTASK_SWITCHED_IN();
@@ -3833,7 +3857,6 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 
 	for( ;; )
 	{
-		vConsoleWrite("%s\n", configIDLE_TASK_NAME);
 		/* See if any tasks have deleted themselves - if so then the idle task
 		is responsible for freeing the deleted task's TCB and stack. */
 		prvCheckTasksWaitingTermination();
