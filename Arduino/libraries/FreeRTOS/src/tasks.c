@@ -352,6 +352,8 @@ typedef struct TaskControlBlock_t
 below to enable the use of older kernel aware debuggers. */
 typedef tskTCB TCB_t;
 
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 xTaskSporadic_t xSporadicTasks[configMAX_TASK_COUNT];
 TCB_t* pxTasks[configMAX_TASK_COUNT];
 TCB_t* pxNewTasks[configMAX_TASK_COUNT];
@@ -370,11 +372,8 @@ BaseType_t uxSporadicTail = configMAX_TASK_COUNT - 1;
 BaseType_t xSchedulePossible = pdTRUE;
 BaseType_t uxSchedulePeriod = 1;
 
-// TODO Uncomment lines below before release
-// BaseType_t uxServerCapacity = 0;
-// BaseType_t uxServerPeriod = 0;
-TickType_t uxServerCapacity = 3;
-TickType_t uxServerPeriod = 20;
+BaseType_t uxServerCapacity = 0;
+BaseType_t uxServerPeriod = 0;
 
 TickType_t uxServerRT = 0;
 TickType_t uxServerRA = 0;
@@ -903,6 +902,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 		xSporadic.xJob = xGetJob(pcJob);
 		xSporadic.uxCompute = uxCompute;
 		strcpy(xSporadic.pvParameters, pvParameters);
+		xSporadic.xStarted = pdFALSE;
 		
 		vSporadicEnqueue(xSporadic);
 
@@ -3250,8 +3250,16 @@ void vServerTask(TickType_t xCurrentTick) {
 	pxSporadic = pxSporadicPeek();
 	
 	if(pxSporadic) {
+		if(pxSporadic->xStarted == pdFALSE) {
+			uxServerRT = xTaskGetTickCount() + uxServerPeriod;
+			uxServerRA = MIN(pxSporadic->uxCompute, uxServerCapacity);
+		}
+
 		pxSporadic->xJob(pxSporadic->pvParameters);
+		pxSporadic->xStarted = pdTRUE;
 		pxSporadic->uxCompute--;
+
+		uxServerCapacity--;
 	}
 
 	vNextTask(0, xCurrentTick);
@@ -3320,6 +3328,8 @@ void vTaskSwitchContext( void )
 		TickType_t xCurrentTick = xTaskGetTickCount();
 
 		if(xCurrentTick != xPrevTick) {
+			vConsoleWrite("S,%d,%d,%d\n", uxServerCapacity, uxServerRT, uxServerRA);
+
 			if(xCurrentTick % configLOG_PERIOD == 0) {
  				vConsoleWrite("G,%d,", xCurrentTick);
 			}
@@ -3337,13 +3347,6 @@ void vTaskSwitchContext( void )
 
 				if(xCurrentTick == uxServerRT) {
 					uxServerCapacity += uxServerRA;
-				}
-
-				if(pxCurrentTCB->uxCompute >= uxServerCapacity && uxServerCapacity > 0) {
-					uxServerRT = xCurrentTick + uxServerPeriod;
-					uxServerRA = uxServerCapacity;
-				}else {
-					uxServerRA -= uxServerCapacity;
 				}
 
 				if(pxCurrentTCB->uxFinished == pdTRUE) {
@@ -3740,7 +3743,7 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 		if(uxInputReady == pdTRUE) {
 			char* pcSep = ",";
 			char* pcCmd = trim(strtok(pcInputBuff, pcSep));
-		
+
 			if(!strcmp(pcCmd, "TAP")) {
 				// TaskAddPeriodic
 				// TAP,name,compute,period,job,parameters
@@ -3794,6 +3797,7 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 				}
 
 				uxTaskCount = 0;
+				uxTaskCurrent = 0;
 
 				vBatchJoin();
 			}else if(!strcmp(pcCmd, "BJP")) {
@@ -3822,7 +3826,7 @@ static portTASK_FUNCTION( prvConsoleTask, pvParameters ) {
 
 				vTaskGetMaxUtilization(&xCapacity, &xPeriod);
 
- 				vConsoleWrite("U: %d %d\n", xCapacity, xPeriod);
+ 				vConsoleWrite("U,%d,%d\n", xCapacity, xPeriod);
 			}
 
 			pcInputPtr = pcInputBuff;

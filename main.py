@@ -30,6 +30,7 @@ class SerialThread(Thread):
                 fconsole.close()
 
             response = self.arduino.readline().decode("ascii").replace("\r\n", "\n")
+            print(response)
             
             if response[0] == "G": # Graph
                 coords = response.split(",")
@@ -53,6 +54,8 @@ class ConsoleThread(Thread):
         self.console = console
         
     def run(self):
+        time.sleep(1)
+        
         fin = open(PATH_CONSOLE, "r+")
 
         while True:
@@ -65,7 +68,7 @@ class ConsoleThread(Thread):
                 self.console.insert(END, line)
                 self.console.see("end")
                 
-class Plot:
+class Plot():
     def __init__(self):
         self.total_tasks = MAX_TASK_COUNT
         self.fig = plt.figure()
@@ -94,12 +97,9 @@ class Plot:
                         if task != int(coords[1]):
                             self.xs[task].append(int(coords[0]))
                             self.ys[task].append(0)
-
+                
                 line = fin.readline()
              
-            self.xs = self.xs[-10:]
-            self.ys = self.ys[-10:]
-
             for task in range(self.total_tasks):
                 plt.subplot(self.total_tasks, 1, task + 1)
                 plt.ylabel("Task {}".format(task))
@@ -199,8 +199,8 @@ class App(Frame):
         self.btn_remove_task.grid(row=7, column=1, padx=10, pady=10)
 
         # Join batch
-        self.btn_upload = Button(self, text="Upload batch", command=self.action_bjp)
-        self.btn_upload.grid(row=8, column=0, padx=10, pady=10)
+        self.btn_join = Button(self, text="Join batch", command=self.action_bjp)
+        self.btn_join.grid(row=8, column=0, padx=10, pady=10)
         
         # Add sporadic task
         self.btn_sporadic = Button(self, text="Add sporadic task", command=self.action_tas)
@@ -217,15 +217,17 @@ class App(Frame):
         # Show graph
         self.btn_show = Button(self, text="Show graph", command=self.action_show)
         self.btn_show.grid(row=10, column=0, columnspan=2, padx=10, pady=10)
-       
-        # Console
-        self.txt_console = Text(self)
-        self.txt_console.grid(row=11, column=0, columnspan=2, padx=10, pady=10)
         
         SerialThread().start()
-        ConsoleThread(self.txt_console).start()
 
+        #self.init_console()
+        
         self.pack(fill=BOTH, expand=1)
+
+    def init_console(self):
+        self.txt_console = Text(self)
+        self.txt_console.grid(row=11, column=0, columnspan=2, padx=10, pady=10)
+        ConsoleThread(self.txt_console).start()
 
     def action_select_task(self, event):
         global current_task
@@ -280,7 +282,12 @@ class App(Frame):
     def action_tas(self): 
         global current_task
         current_task.name = self.cmb_task.get()
+        current_task.time_compute = self.ent_time_compute.get()
         current_task.parameters = self.ent_parameters.get()
+        for job in jobs:
+            if job == self.cmb_job.get():
+                current_task.job = job
+                break
         self.cmd_push("TAS,{compute},{job},{parameters}\n".format(
             compute=current_task.time_compute,
             job=current_task.job,
@@ -304,10 +311,10 @@ class App(Frame):
         self.cmd_push("SC,{capacity},{period}\n".format(
             capacity=self.ent_time_server_capacity.get(),
             period=self.ent_time_server_period.get()))
+        self.layout_refresh()
  
     def action_show(self):
-        plot = Plot()
-        plot.start()
+        Plot().start()
 
     def cmd_push(self, cmd):
         cmd_q.put(cmd)
