@@ -30,7 +30,6 @@ class SerialThread(Thread):
                 fconsole.close()
 
             response = self.arduino.readline().decode("ascii").replace("\r\n", "\n")
-            print(response)
             
             if response[0] == "G": # Graph
                 coords = response.split(",")

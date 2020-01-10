@@ -339,9 +339,11 @@ typedef struct TaskControlBlock_t
 		int iTaskErrno;
 	#endif
 
+	BaseType_t uxId;
 	TickType_t uxCompute;
 	TickType_t uxPeriod;
 	TickType_t uxArrival;
+	TickType_t uxNext;
 	BaseType_t uxFinished;
 	TaskFunction_t xJob;
 	char pvParameters[configMAX_TASK_PARAMS_LEN];
@@ -353,7 +355,7 @@ below to enable the use of older kernel aware debuggers. */
 typedef tskTCB TCB_t;
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
+					
 xTaskSporadic_t xSporadicTasks[configMAX_TASK_COUNT];
 TCB_t* pxTasks[configMAX_TASK_COUNT];
 TCB_t* pxNewTasks[configMAX_TASK_COUNT];
@@ -795,6 +797,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 
 		if(fUtilizationTasks > fLimit) {
 			xSchedulePossible = pdFALSE;
+			vConsoleWrite("notpos\n");
 		}
 	
 		if(xSchedulePossible == pdTRUE) {
@@ -819,6 +822,12 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 
 			for(uxSchedulePeriod = pxTasks[0]->uxPeriod, i = 1; i < uxTaskCount; i++) {
 				uxSchedulePeriod = pxTasks[i]->uxPeriod * uxSchedulePeriod / xGCD(pxTasks[i]->uxPeriod, uxSchedulePeriod);
+			}
+			
+			pxTasks[0]->uxNext = xTaskGetTickCount() + 1;
+
+			for(i = 1; i < uxTaskCount; i++) {
+				pxTasks[i]->uxNext = pxTasks[i - 1]->uxNext + pxTasks[i - 1]->uxCompute;
 			}
 		}
 	}
@@ -868,9 +877,11 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			function - use them. */
 			pxNewTCB = ( TCB_t * ) pxTaskBuffer; /*lint !e740 !e9087 Unusual cast is ok as the structures are designed to have the same alignment, and the size is checked by an assert. */
 			pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
+			pxNewTCB->uxId = uxTaskCount;
 			pxNewTCB->uxCompute = uxCompute;
 			pxNewTCB->uxPeriod = uxPeriod;
-			pxNewTCB->uxArrival = 0;
+			pxNewTCB->uxArrival = -1;
+			pxNewTCB->uxNext = -1;
 			pxNewTCB->uxFinished = pdTRUE;
 			pxNewTCB->xJob = xJob;
 			strcpy(pxNewTCB->pvParameters, pvParameters);
@@ -2257,12 +2268,15 @@ BaseType_t xReturn;
 	/* Add the idle task at the lowest priority. */
 	#if( configSUPPORT_STATIC_ALLOCATION == 1 )
 	{
-		pxTasks[uxTaskCount++] = (TCB_t*) xTaskCreatePeriodic(
+		pxTasks[0] = (TCB_t*) xTaskCreatePeriodic(
 			configCONSOLE_TASK_NAME,
 			configCONSOLE_TASK_NAME,
 			uxConsoleCompute,
 			uxConsolePeriod,
 			NULL);
+
+		uxTaskCount = 1;
+		uxTaskCurrent = 0;
 
 		StaticTask_t *pxIdleTaskTCBBuffer = NULL;
 		StackType_t *pxIdleTaskStackBuffer = NULL;
@@ -3262,12 +3276,28 @@ void vServerTask(TickType_t xCurrentTick) {
 		uxServerCapacity--;
 	}
 
-	vNextTask(0, xCurrentTick);
+	vNextTask(-1, xCurrentTick);
 }
 
 void vNextTask(BaseType_t xTaskIndex, TickType_t xCurrentTick) {
-	pxCurrentTCB = pxTasks[xTaskIndex >= 0 ? xTaskIndex : (uxTaskCurrent = ++uxTaskCurrent % uxTaskCount)];
+	if(xTaskIndex < 0) {
+		uxTaskCurrent = ++uxTaskCurrent % uxTaskCount;
+	
+		if(xCurrentTick < pxTasks[uxTaskCurrent]->uxNext) {
+			for(int i = 0; i < uxTaskCount; i++) {
+				if(!strcmp(pxTasks[i]->pcTaskName, configCONSOLE_TASK_NAME)) {
+					uxTaskCurrent = i;
+					break;
+				}
+			}
+		}
+	}else {
+		uxTaskCurrent = xTaskIndex;
+	}
+
+	pxCurrentTCB = pxTasks[uxTaskCurrent];
 	pxCurrentTCB->uxArrival = xCurrentTick;
+	pxCurrentTCB->uxNext = pxCurrentTCB->uxArrival + pxCurrentTCB->uxPeriod;
 	pxCurrentTCB->uxFinished = pdFALSE;
 	StackType_t* pxTopOfStack = &(pxCurrentTCB->pxStack[configMINIMAL_STACK_SIZE - (configSTACK_DEPTH_TYPE) 1]);
 	pxTopOfStack = (StackType_t *) (((portPOINTER_SIZE_TYPE) pxTopOfStack) & (~((portPOINTER_SIZE_TYPE) portBYTE_ALIGNMENT_MASK)));
@@ -3328,71 +3358,56 @@ void vTaskSwitchContext( void )
 		TickType_t xCurrentTick = xTaskGetTickCount();
 
 		if(xCurrentTick != xPrevTick) {
-			vConsoleWrite("S,%d,%d,%d\n", uxServerCapacity, uxServerRT, uxServerRA);
-
-			if(xCurrentTick % configLOG_PERIOD == 0) {
- 				vConsoleWrite("G,%d,", xCurrentTick);
-			}
-
 			if(uxTaskCount > 1 && xSchedulePossible == pdTRUE && uxServerPeriod > 0) {
-				/*
-				for(int i = 0; i < uxTaskCount; i++)
-				vConsoleWrite("%c[%d, %d] %s\n",
-						pxCurrentTCB == pxTasks[i] ? '*' : ' ',
-						pxTasks[i]->uxArrival,
-						pxTasks[i]->uxCompute,
-						pxTasks[i]->pcTaskName);
-				vConsoleWrite("____________\n");
-				*/
+				//vConsoleWrite("S,%d,%d,%d\n", uxServerCapacity, uxServerRT, uxServerRA);
+
+				if(xCurrentTick % configLOG_PERIOD == 0) {
+ 					vConsoleWrite("G,%d,", xCurrentTick);
+				}
 
 				if(xCurrentTick == uxServerRT) {
 					uxServerCapacity += uxServerRA;
 				}
+			
+				TCB_t* pxNextTCB = pxTasks[(uxTaskCurrent + 1) % uxTaskCount];
+	
+				char dig[] = "%d\n";
 
 				if(pxCurrentTCB->uxFinished == pdTRUE) {
 					if(uxSporadicSize > 0 && uxServerCapacity > 0) {
 						if(xCurrentTick % configLOG_PERIOD == 0) {
- 							vConsoleWrite("%d\n", uxTaskCount);
+ 							vConsoleWrite(dig, uxTaskCount);
 						}
 
 						vServerTask(xCurrentTick);
 					}else if(xCurrentTick - pxCurrentTCB->uxArrival >= pxCurrentTCB->uxCompute) {
 						if(xCurrentTick % configLOG_PERIOD == 0) {
- 							vConsoleWrite("%d\n", uxTaskCurrent);
+ 							vConsoleWrite(dig, pxCurrentTCB->uxId);
 						}
 
 						vNextTask(-1, xCurrentTick);
 					}else {
 						if(xCurrentTick % configLOG_PERIOD == 0) {
- 							vConsoleWrite("%d\n", uxTaskCurrent);
+ 							vConsoleWrite(dig, pxCurrentTCB->uxId);
 						}
-						
-						vNextTask(0, xCurrentTick);
 					}
 				}else {
 					if(uxServerPeriod <= pxCurrentTCB->uxPeriod && uxSporadicSize > 0 && uxServerCapacity > 0) {
 						if(xCurrentTick % configLOG_PERIOD == 0) {
- 							vConsoleWrite("%d\n", uxTaskCount);
+ 							vConsoleWrite(dig, uxTaskCount);
 						}
 
 						vServerTask(xCurrentTick);
-					}else if(!strcmp(pxCurrentTCB->pcTaskName, configTIMER_SERVICE_TASK_NAME)
-							|| !strcmp(pxCurrentTCB->pcTaskName, configCONSOLE_TASK_NAME)) {
-						if(xCurrentTick % configLOG_PERIOD == 0) {
- 							vConsoleWrite("%d\n", uxTaskCurrent);
-						}
-
-						vNextTask(-1, xCurrentTick);
 					}else {
 						if(xCurrentTick % configLOG_PERIOD == 0) {
- 							vConsoleWrite("%d\n", uxTaskCurrent);
+ 							vConsoleWrite(dig, pxCurrentTCB->uxId);
 						}
 						
-						vNextTask(0, xCurrentTick);
+						vNextTask(-1, xCurrentTick);
 					}
 				}
 			}else {
- 				vConsoleWrite("%d\n", uxTaskCurrent);
+ 				vConsoleWrite("G,%d,%d\n", xCurrentTick, uxTaskCurrent);
 				vNextTask(0, xCurrentTick);
 			}
 			
