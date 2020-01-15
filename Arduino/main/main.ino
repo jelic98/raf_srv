@@ -7,6 +7,7 @@ TAP,t3,1,70,Printer,c
 BJP
 TAS,3,Sporadic,d
 TRP,t1
+SMU
 */
 
 #include <Arduino_FreeRTOS.h>

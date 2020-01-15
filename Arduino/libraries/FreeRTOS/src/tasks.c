@@ -402,18 +402,15 @@ void vConsoleSet(void (*vCW)(char*, ...), void (*vCR)(char*, ...), int (*iCA)())
 void vTaskGetMaxUtilization(TickType_t* pxCapacity, TickType_t* pxPeriod) {
 	int i;
 	float fP = 1.0f;
-	TickType_t xMinPeriod;
 
 	for(i = 0; i < uxTaskCount; i++) {
-		if(!i || *pxPeriod < xMinPeriod) {
-			*pxPeriod = xMinPeriod;
+		if(!i || pxTasks[i]->uxPeriod < *pxPeriod) {
+			*pxPeriod = pxTasks[i]->uxPeriod - 1;
 		}
 
-		fP *= pxTasks[i]->uxCompute / pxTasks[i]->uxPeriod + 1;
+		fP *= 1.0f * pxTasks[i]->uxCompute / pxTasks[i]->uxPeriod + 1;
 	}
-		
-	*pxPeriod--;
-
+	
 	*pxCapacity = floor(((2 - fP) * *pxPeriod) / fP);
 }
 
