@@ -1,0 +1,17 @@
+3
+Memorija,10
+Disk,20
+IO,10
+3
+PrintLetters,0
+PrintNumbers,1,2
+PrintSymbols
+2
+EDF,0
+ESTF,1
+5
+Task1,10,10,100,0
+Task2,10,10,100,1
+Task3,10,10,100,2
+Task4,10,10,200,0
+Task5,10,10,200,1
